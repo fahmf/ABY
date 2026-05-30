@@ -20,7 +20,15 @@ PRD/TRD lengkap & user journey: [`docs/PRD.md`](./docs/PRD.md).
 bun install
 cp .env.example .env.local   # isi kredensial Supabase & Gemini
 bun run dev                  # http://localhost:3000
+bun test                     # tes otomatis (logika inti)
 ```
+
+## Tes
+
+`bun test` menjalankan tes unit untuk logika inti murni (tanpa DB):
+utilitas Arab (tokenizer, normalisasi, kandidat lema) di `tests/arabic.test.ts`,
+helper pipeline ingest (`tests/ingest-text.test.ts`), dan lookup kamus seed
+(`tests/dictionary.test.ts`).
 
 ## Database
 
