@@ -26,6 +26,35 @@ export function normalize(text: string): string {
     .trim();
 }
 
+// Klitik depan & akhiran umum untuk heuristik pencocokan bentuk kata → lemma.
+const PREFIXES = ["وال", "فال", "بال", "كال", "لل", "ال", "و", "ف", "ب", "ك", "ل"];
+const SUFFIXES = ["تها", "هما", "كما", "هم", "كم", "نا", "ها", "ه", "ك", "ي", "ات", "ون", "ين", "ة"];
+
+/**
+ * Kandidat lemma yang dinormalkan untuk satu bentuk kata (surface).
+ * Heuristik sementara; lemmatisasi akurat dihasilkan Gemini saat ingest.
+ */
+export function lemmaCandidates(surface: string): string[] {
+  const base = normalize(surface);
+  const out = new Set<string>([base]);
+
+  const stripSuffix = (w: string) => {
+    for (const s of SUFFIXES) {
+      if (w.endsWith(s) && w.length - s.length >= 2) out.add(w.slice(0, -s.length));
+    }
+  };
+
+  stripSuffix(base);
+  for (const p of PREFIXES) {
+    if (base.startsWith(p) && base.length - p.length >= 2) {
+      const stripped = base.slice(p.length);
+      out.add(stripped);
+      stripSuffix(stripped);
+    }
+  }
+  return [...out];
+}
+
 export type Segment =
   | { type: "word"; text: string; start: number; end: number; index: number }
   | { type: "sep"; text: string; start: number; end: number };

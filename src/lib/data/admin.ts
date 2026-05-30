@@ -28,6 +28,82 @@ export type AdminLesson = {
   unitTitle: string;
 };
 
+export type AdminEntry = {
+  id: string;
+  lemma_ar: string;
+  root_ar: string;
+  meaning_ar: string;
+  synonyms_ar: string[];
+  antonyms_ar: string[];
+  examples_ar: string[];
+  status: "draft" | "published";
+};
+
+type EntryRow = {
+  id: string;
+  lemma_ar: string;
+  meaning_ar: string | null;
+  synonyms_ar: unknown;
+  antonyms_ar: unknown;
+  examples_ar: unknown;
+  status: "draft" | "published";
+  roots: { root_ar: string } | null;
+};
+
+function strArr(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+}
+function exArr(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((x) =>
+      typeof x === "string"
+        ? x
+        : x && typeof x === "object" && "text" in x
+          ? String((x as { text: unknown }).text)
+          : ""
+    )
+    .filter(Boolean);
+}
+function mapEntry(r: EntryRow): AdminEntry {
+  return {
+    id: r.id,
+    lemma_ar: r.lemma_ar,
+    root_ar: r.roots?.root_ar ?? "",
+    meaning_ar: r.meaning_ar ?? "",
+    synonyms_ar: strArr(r.synonyms_ar),
+    antonyms_ar: strArr(r.antonyms_ar),
+    examples_ar: exArr(r.examples_ar),
+    status: r.status,
+  };
+}
+
+export async function listDictionaryEntries(
+  status?: "draft" | "published"
+): Promise<AdminEntry[]> {
+  const supabase = await createClient();
+  const base = supabase
+    .from("dictionary_entries")
+    .select(
+      "id,lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,status,roots(root_ar)"
+    )
+    .order("created_at", { ascending: false });
+  const { data } = status ? await base.eq("status", status) : await base;
+  return ((data as unknown as EntryRow[]) ?? []).map(mapEntry);
+}
+
+export async function getDictionaryEntry(id: string): Promise<AdminEntry | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("dictionary_entries")
+    .select(
+      "id,lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,status,roots(root_ar)"
+    )
+    .eq("id", id)
+    .maybeSingle();
+  return data ? mapEntry(data as unknown as EntryRow) : null;
+}
+
 export async function listVolumes(): Promise<AdminVolume[]> {
   const supabase = await createClient();
   const { data } = await supabase

@@ -1,6 +1,7 @@
 "use client";
 
-import { Hash, Languages } from "lucide-react";
+import * as React from "react";
+import { Hash, Languages, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,20 +10,41 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { lookupWord } from "@/lib/data/dictionary";
+import type { DictionaryEntry } from "@/lib/data/types";
 
 export function DictionaryPanel({ surface }: { surface: string }) {
-  const entry = lookupWord(surface);
+  const [entry, setEntry] = React.useState<DictionaryEntry | null>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let active = true;
+    setLoading(true);
+    fetch(`/api/dictionary?q=${encodeURIComponent(surface)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (active) setEntry(d.entry ?? null);
+      })
+      .catch(() => active && setEntry(null))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [surface]);
 
   return (
     <div className="flex flex-col gap-4">
       <SheetHeader>
         <SheetTitle className="font-naskh text-3xl">{surface}</SheetTitle>
         <SheetDescription className="flex items-center gap-2">
-          {entry ? (
+          {loading ? (
+            <span className="flex items-center gap-1">
+              <Loader2 className="size-3.5 animate-spin" />
+              جارٍ البحث…
+            </span>
+          ) : entry ? (
             <Badge variant="secondary" className="gap-1">
               <Hash className="size-3" />
-              الجذر: {entry.root_ar}
+              الجذر: {entry.root_ar || "—"}
             </Badge>
           ) : (
             <span className="flex items-center gap-1">
@@ -33,7 +55,7 @@ export function DictionaryPanel({ surface }: { surface: string }) {
         </SheetDescription>
       </SheetHeader>
 
-      {entry && (
+      {!loading && entry && (
         <div className="flex flex-col gap-5 overflow-y-auto px-4 pb-6">
           <Field label="المعنى">
             <p className="leading-relaxed">{entry.meaning_ar}</p>

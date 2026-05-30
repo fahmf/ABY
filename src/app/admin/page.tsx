@@ -1,5 +1,14 @@
 import Link from "next/link";
-import { Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Languages,
+  Pencil,
+  Plus,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,11 +16,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireStaff } from "@/lib/auth";
+import { isGeminiConfigured } from "@/lib/supabase/config";
 import { listLessons, listUnits, listVolumes } from "@/lib/data/admin";
 import {
   createUnit,
   createVolume,
   deleteLesson,
+  ingestLessonAction,
   setLessonStatus,
 } from "./actions";
 
@@ -27,18 +38,37 @@ export default async function AdminDashboard() {
     listUnits(),
     listLessons(),
   ]);
+  const geminiOK = isGeminiConfigured();
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">إدارة المحتوى</h1>
-        <Button asChild className="gap-1.5">
-          <Link href="/admin/lessons/new">
-            <Plus className="size-4" />
-            نصّ جديد
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" className="gap-1.5">
+            <Link href="/admin/dictionary">
+              <Languages className="size-4" />
+              مراجعة المعجم
+            </Link>
+          </Button>
+          <Button asChild className="gap-1.5">
+            <Link href="/admin/lessons/new">
+              <Plus className="size-4" />
+              نصّ جديد
+            </Link>
+          </Button>
+        </div>
       </div>
+
+      {!geminiOK && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
+          <p className="text-muted-foreground">
+            <span className="text-foreground">GEMINI_API_KEY</span> غير مضبوط —
+            المعالجة (استخراج الجذر وتوليد المعجم) معطّلة حتى تضبطه.
+          </p>
+        </div>
+      )}
 
       {/* Lessons */}
       <Card className="mb-6">
@@ -83,6 +113,16 @@ export default async function AdminDashboard() {
                     ) : (
                       <Eye className="size-4" />
                     )}
+                  </Button>
+                </form>
+                <form action={ingestLessonAction.bind(null, l.id)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="معالجة (الجذر + المعجم)"
+                    disabled={!geminiOK}
+                  >
+                    <Sparkles className="size-4" />
                   </Button>
                 </form>
                 <Button asChild variant="ghost" size="icon" title="تعديل">

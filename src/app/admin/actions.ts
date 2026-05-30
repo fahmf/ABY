@@ -5,9 +5,17 @@ import { redirect } from "next/navigation";
 
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { ingestLesson } from "@/lib/ingest/pipeline";
 
 function str(form: FormData, key: string): string {
   return String(form.get(key) ?? "").trim();
+}
+
+function csv(form: FormData, key: string): string[] {
+  return str(form, key)
+    .split(/[,،\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export async function createVolume(form: FormData) {
@@ -66,6 +74,60 @@ export async function deleteLesson(id: string) {
   const supabase = await createClient();
   await supabase.from("lessons").delete().eq("id", id);
   revalidatePath("/admin");
+}
+
+// ---------- pipeline ingest (Gemini) ----------
+export async function ingestLessonAction(id: string) {
+  await requireStaff();
+  await ingestLesson(id);
+  revalidatePath("/admin");
+  revalidatePath("/admin/dictionary");
+}
+
+// ---------- verifikasi kamus ----------
+export async function saveDictionaryEntry(form: FormData) {
+  const profile = await requireStaff();
+  const supabase = await createClient();
+  const id = str(form, "id");
+  const examples = str(form, "examples_ar")
+    .split("\n")
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .map((text) => ({ text }));
+
+  const publish = str(form, "status") === "published";
+  await supabase
+    .from("dictionary_entries")
+    .update({
+      meaning_ar: str(form, "meaning_ar"),
+      synonyms_ar: csv(form, "synonyms_ar"),
+      antonyms_ar: csv(form, "antonyms_ar"),
+      examples_ar: examples,
+      status: publish ? "published" : "draft",
+      reviewed_by: publish ? profile.id : null,
+      reviewed_at: publish ? new Date().toISOString() : null,
+    })
+    .eq("id", id);
+
+  revalidatePath("/admin/dictionary");
+  redirect("/admin/dictionary");
+}
+
+export async function setEntryStatus(
+  id: string,
+  status: "draft" | "published"
+) {
+  const profile = await requireStaff();
+  const supabase = await createClient();
+  await supabase
+    .from("dictionary_entries")
+    .update({
+      status,
+      reviewed_by: status === "published" ? profile.id : null,
+      reviewed_at: status === "published" ? new Date().toISOString() : null,
+    })
+    .eq("id", id);
+  revalidatePath("/admin/dictionary");
 }
 
 export async function signOut() {
