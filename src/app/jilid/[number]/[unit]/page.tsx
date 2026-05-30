@@ -12,11 +12,11 @@ export default async function UnitPage({
   params: Promise<{ number: string; unit: string }>;
 }) {
   const { number, unit } = await params;
-  const volume = getVolume(Number(number));
-  const unitData = volume ? getUnit(volume.number, unit) : null;
+  const volume = await getVolume(Number(number));
+  const unitData = volume ? await getUnit(volume.number, unit) : null;
   if (!volume || !unitData) notFound();
 
-  const lessons = getLessons(unitData.slug);
+  const lessons = await getLessons(unitData.slug);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">

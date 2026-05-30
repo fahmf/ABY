@@ -12,10 +12,10 @@ export default async function ReadPage({
   params: Promise<{ lesson: string }>;
 }) {
   const { lesson } = await params;
-  const data = getLesson(lesson);
+  const data = await getLesson(lesson);
   if (!data) notFound();
 
-  const unit = getUnit(data.volumeNumber, data.unitSlug);
+  const unit = await getUnit(data.volumeNumber, data.unitSlug);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">

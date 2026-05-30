@@ -12,10 +12,10 @@ export default async function VolumePage({
   params: Promise<{ number: string }>;
 }) {
   const { number } = await params;
-  const volume = getVolume(Number(number));
+  const volume = await getVolume(Number(number));
   if (!volume) notFound();
 
-  const units = getUnits(volume.number);
+  const units = await getUnits(volume.number);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">

@@ -8,16 +8,26 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getVolumes } from "@/lib/data/repository";
 
-// MVP: jilid 1 aktif, sisanya "قريباً". Nanti diambil dari Supabase.
-const volumes = [
-  { number: 1, title: "الكتاب الأول", available: true },
-  { number: 2, title: "الكتاب الثاني", available: false },
-  { number: 3, title: "الكتاب الثالث", available: false },
-  { number: 4, title: "الكتاب الرابع", available: false },
-];
+export const dynamic = "force-dynamic";
 
-export default function Home() {
+const VOLUME_TITLES: Record<number, string> = {
+  1: "الكتاب الأول",
+  2: "الكتاب الثاني",
+  3: "الكتاب الثالث",
+  4: "الكتاب الرابع",
+};
+
+export default async function Home() {
+  // Empat slot tampil; status "متاح" ditentukan oleh data (Supabase/seed).
+  const available = new Set((await getVolumes()).map((v) => v.number));
+  const volumes = [1, 2, 3, 4].map((number) => ({
+    number,
+    title: VOLUME_TITLES[number],
+    available: available.has(number),
+  }));
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
       <section className="mx-auto max-w-2xl text-center">

@@ -31,7 +31,7 @@ Jalankan lewat Supabase SQL Editor atau Supabase CLI (`supabase db push`).
 
 - [x] **Fase 0** — Fondasi: scaffold, tema clean RTL Arab, dark mode, struktur, skema DB, klien Supabase.
 - [x] **Fase 1** — Navigasi Jilid→Bab→Teks + reader kata-clickable + panel kamus (data seed) + toggle harakat.
-- [ ] Fase 2 — Auth admin + CRUD konten (draft/published).
+- [x] **Fase 2** — Auth admin (Supabase) + RLS + CRUD konten (jilid/unit/teks, draft/published). Repository membaca dari Supabase dengan fallback seed.
 - [ ] Fase 3 — Pipeline ingest Gemini (akar + draft kamus) + antrian verifikasi.
 - [ ] Fase 4 — Frekuensi se-akar + deep-link highlight.
 - [ ] Fase 5 — Pencarian, pengaturan baca, PWA (opsional).
