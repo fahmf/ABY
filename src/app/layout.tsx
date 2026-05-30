@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cairo, Amiri } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SiteHeader } from "@/components/site-header";
+import { ServiceWorkerRegister } from "@/components/service-worker-register";
 
 // Antarmuka (sans, Arab) — bersih & modern
 const cairo = Cairo({
@@ -23,6 +24,19 @@ export const metadata: Metadata = {
   title: "العربية بين يديك — قارئ تفاعلي",
   description:
     "قارئ تفاعلي لنصوص كتاب العربية بين يديك مع معجم لكل كلمة: الجذر، المعنى، المرادفات، الأضداد، والأمثلة.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "العربية بين يديك",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#171717" },
+  ],
 };
 
 export default function RootLayout({
@@ -46,6 +60,7 @@ export default function RootLayout({
         >
           <SiteHeader />
           <main className="flex-1">{children}</main>
+          <ServiceWorkerRegister />
         </ThemeProvider>
       </body>
     </html>

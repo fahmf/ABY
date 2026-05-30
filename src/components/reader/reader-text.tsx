@@ -1,20 +1,42 @@
 "use client";
 
 import * as React from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Minus, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { stripDiacritics, tokenize } from "@/lib/arabic";
 import { DictionaryPanel } from "./dictionary-panel";
 
+const FONT_STEPS = [
+  "text-xl leading-[2.6] sm:text-2xl sm:leading-[2.8]",
+  "text-2xl leading-[2.6] sm:text-3xl sm:leading-[2.8]",
+  "text-3xl leading-[2.7] sm:text-4xl sm:leading-[2.9]",
+  "text-4xl leading-[2.8] sm:text-5xl sm:leading-[3]",
+];
+
 export function ReaderText({ text }: { text: string }) {
   const [showHarakat, setShowHarakat] = React.useState(true);
+  const [fontStep, setFontStep] = React.useState(1);
   const [selected, setSelected] = React.useState<string | null>(null);
   const [highlighted, setHighlighted] = React.useState<number | null>(null);
   const containerRef = React.useRef<HTMLParagraphElement>(null);
 
   const segments = React.useMemo(() => tokenize(text), [text]);
+
+  // Muat preferensi baca dari localStorage.
+  React.useEffect(() => {
+    const h = localStorage.getItem("aby:harakat");
+    const f = localStorage.getItem("aby:fontStep");
+    if (h !== null) setShowHarakat(h === "1");
+    if (f !== null) setFontStep(Number(f));
+  }, []);
+  React.useEffect(() => {
+    localStorage.setItem("aby:harakat", showHarakat ? "1" : "0");
+  }, [showHarakat]);
+  React.useEffect(() => {
+    localStorage.setItem("aby:fontStep", String(fontStep));
+  }, [fontStep]);
 
   // Deep-link: #t=<position> → scroll + sorot token, lalu redam setelah jeda.
   React.useEffect(() => {
@@ -40,7 +62,29 @@ export function ReaderText({ text }: { text: string }) {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-end">
+      <div className="mb-6 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="تصغير الخط"
+            disabled={fontStep === 0}
+            onClick={() => setFontStep((s) => Math.max(0, s - 1))}
+          >
+            <Minus className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="تكبير الخط"
+            disabled={fontStep === FONT_STEPS.length - 1}
+            onClick={() =>
+              setFontStep((s) => Math.min(FONT_STEPS.length - 1, s + 1))
+            }
+          >
+            <Plus className="size-4" />
+          </Button>
+        </div>
         <Button
           variant="outline"
           size="sm"
@@ -58,7 +102,7 @@ export function ReaderText({ text }: { text: string }) {
 
       <p
         ref={containerRef}
-        className="font-naskh text-2xl leading-[2.6] sm:text-3xl sm:leading-[2.8]"
+        className={`font-naskh ${FONT_STEPS[fontStep]}`}
       >
         {segments.map((seg, i) => {
           if (seg.type === "sep") {
