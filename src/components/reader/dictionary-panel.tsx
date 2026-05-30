@@ -4,12 +4,12 @@ import * as React from "react";
 import { Hash, Languages, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { RootFrequencyButton } from "./root-frequency";
 import type { DictionaryEntry } from "@/lib/data/types";
 
 export function DictionaryPanel({ surface }: { surface: string }) {
@@ -100,10 +100,7 @@ export function DictionaryPanel({ surface }: { surface: string }) {
             </Field>
           )}
 
-          <Button variant="outline" size="sm" disabled className="w-fit gap-1.5">
-            <Hash className="size-3.5" />
-            عدد مرّات ورود الجذر — قريباً
-          </Button>
+          <RootFrequencyButton surface={surface} />
         </div>
       )}
     </div>

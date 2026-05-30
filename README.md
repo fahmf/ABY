@@ -33,5 +33,5 @@ Jalankan lewat Supabase SQL Editor atau Supabase CLI (`supabase db push`).
 - [x] **Fase 1** — Navigasi Jilid→Bab→Teks + reader kata-clickable + panel kamus (data seed) + toggle harakat.
 - [x] **Fase 2** — Auth admin (Supabase) + RLS + CRUD konten (jilid/unit/teks, draft/published). Repository membaca dari Supabase dengan fallback seed.
 - [x] **Fase 3** — Pipeline ingest Gemini (tokenisasi → akar + lemma + draft kamus) + antrian verifikasi (draft→published) + reader tersambung ke kamus DB via `/api/dictionary`.
-- [ ] Fase 4 — Frekuensi se-akar + deep-link highlight.
+- [x] **Fase 4** — Frekuensi se-akar (`/api/frequency`) + daftar kemunculan per teks + deep-link highlight (`/baca/[lesson]#t=<id>`).
 - [ ] Fase 5 — Pencarian, pengaturan baca, PWA (opsional).
