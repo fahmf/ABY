@@ -25,10 +25,16 @@ bun test                     # tes otomatis (logika inti)
 
 ## Tes
 
-`bun test` menjalankan tes unit untuk logika inti murni (tanpa DB):
-utilitas Arab (tokenizer, normalisasi, kandidat lema) di `tests/arabic.test.ts`,
-helper pipeline ingest (`tests/ingest-text.test.ts`), dan lookup kamus seed
-(`tests/dictionary.test.ts`).
+`bun test` menjalankan tes (tanpa DB):
+- Logika inti murni: utilitas Arab (`tests/arabic.test.ts`), helper pipeline
+  ingest (`tests/ingest-text.test.ts`), lookup kamus seed
+  (`tests/dictionary.test.ts`), pencarian (`tests/search-core.test.ts`),
+  frekuensi se-akar (`tests/frequency-core.test.ts`).
+- Komponen React via happy-dom: reader interaktif
+  (`tests/reader-text.test.tsx`) — token clickable, toggle harakat, ukuran
+  font, panel kamus, highlight deep-link `#t=`.
+
+Setup DOM di `tests/setup.ts` (di-preload via `bunfig.toml`). 49 tes.
 
 ## Database
 

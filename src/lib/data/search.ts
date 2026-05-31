@@ -1,27 +1,9 @@
-import { normalize, stripDiacritics } from "@/lib/arabic";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { buildHit, searchSeed, type SearchHit } from "./search-core";
 import { LESSONS, UNITS } from "./seed";
 
-export type SearchHit = {
-  lessonSlug: string;
-  lessonTitle: string;
-  unitTitle: string;
-  volumeNumber: number;
-  snippet: string;
-};
-
-const RADIUS = 50;
-
-function snippetAround(body: string, idx: number, qLen: number): string {
-  const from = Math.max(0, idx - RADIUS);
-  const to = Math.min(body.length, idx + qLen + RADIUS);
-  return (
-    (from > 0 ? "…" : "") +
-    body.slice(from, to).trim() +
-    (to < body.length ? "…" : "")
-  );
-}
+export type { SearchHit };
 
 /**
  * Cari teks di judul & isi pelajaran (published). Pencocokan tanpa harakat.
@@ -39,7 +21,7 @@ export async function searchLessons(query: string): Promise<SearchHit[]> {
       // jatuh ke seed
     }
   }
-  return fromSeed(q);
+  return searchSeed(q, LESSONS, UNITS);
 }
 
 async function fromSupabase(q: string): Promise<SearchHit[] | null> {
@@ -61,45 +43,7 @@ async function fromSupabase(q: string): Promise<SearchHit[] | null> {
     units: { title_ar: string; volumes: { number: number } };
   };
   const rows = (data as unknown as Row[]) ?? [];
-  return rows.map((r) => buildHit(r.slug, r.title_ar, r.body_ar, r.units.title_ar, r.units.volumes.number, q));
-}
-
-function fromSeed(q: string): SearchHit[] {
-  const nq = normalize(q);
-  const out: SearchHit[] = [];
-  for (const l of LESSONS) {
-    const unit = UNITS.find((u) => u.slug === l.unitSlug);
-    const hay = normalize(l.title_ar + " " + l.body_ar);
-    if (hay.includes(nq)) {
-      out.push(
-        buildHit(l.slug, l.title_ar, l.body_ar, unit?.title_ar ?? "", l.volumeNumber, q)
-      );
-    }
-  }
-  return out;
-}
-
-function buildHit(
-  slug: string,
-  title: string,
-  body: string,
-  unitTitle: string,
-  volumeNumber: number,
-  q: string
-): SearchHit {
-  // Cuplikan diambil dari teks tanpa harakat agar offset pencocokan konsisten.
-  const bare = stripDiacritics(body);
-  const nq = stripDiacritics(q);
-  const idx = bare.indexOf(nq);
-  const snippet =
-    idx >= 0
-      ? snippetAround(bare, idx, nq.length)
-      : bare.slice(0, 80) + (bare.length > 80 ? "…" : "");
-  return {
-    lessonSlug: slug,
-    lessonTitle: title,
-    unitTitle,
-    volumeNumber,
-    snippet,
-  };
+  return rows.map((r) =>
+    buildHit(r.slug, r.title_ar, r.body_ar, r.units.title_ar, r.units.volumes.number, q)
+  );
 }

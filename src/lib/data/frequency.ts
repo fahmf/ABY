@@ -1,33 +1,16 @@
-import { lemmaCandidates, tokenize } from "@/lib/arabic";
+import { lemmaCandidates } from "@/lib/arabic";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { lookupWord } from "./dictionary";
+import {
+  frequencyFromSeed,
+  makeSnippet,
+  type Occurrence,
+  type RootFrequency,
+} from "./frequency-core";
 import { LESSONS, UNITS } from "./seed";
 
-export type Occurrence = {
-  lessonSlug: string;
-  lessonTitle: string;
-  unitTitle: string;
-  volumeNumber: number;
-  position: number; // indeks kata → anchor #t=<position>
-  snippet: string; // cuplikan kalimat di sekitar kata
-};
-
-export type RootFrequency = {
-  root_ar: string;
-  total: number;
-  occurrences: Occurrence[];
-};
-
-const SNIPPET_RADIUS = 40; // karakter sebelum/sesudah
-
-function makeSnippet(body: string, start: number, end: number): string {
-  const from = Math.max(0, start - SNIPPET_RADIUS);
-  const to = Math.min(body.length, end + SNIPPET_RADIUS);
-  const pre = from > 0 ? "…" : "";
-  const post = to < body.length ? "…" : "";
-  return pre + body.slice(from, to).trim() + post;
-}
+export type { Occurrence, RootFrequency };
 
 /**
  * Frekuensi & daftar kemunculan kata se-akar untuk sebuah bentuk kata.
@@ -45,7 +28,7 @@ export async function getRootFrequency(
       // jatuh ke seed
     }
   }
-  return fromSeed(surface);
+  return frequencyFromSeed(surface, LESSONS, UNITS, lookupWord);
 }
 
 async function fromSupabase(surface: string): Promise<RootFrequency | null> {
@@ -100,36 +83,4 @@ async function fromSupabase(surface: string): Promise<RootFrequency | null> {
     total: occurrences.length,
     occurrences,
   };
-}
-
-function fromSeed(surface: string): RootFrequency | null {
-  const entry = lookupWord(surface);
-  if (!entry) return null;
-
-  // Kumpulan lemma ternormalkan yang berbagi akar yang sama (dari seed).
-  const targetRoot = entry.root_ar;
-  const occurrences: Occurrence[] = [];
-
-  for (const lesson of LESSONS) {
-    for (const seg of tokenize(lesson.body_ar)) {
-      if (seg.type !== "word") continue;
-      const hit = lookupWord(seg.text);
-      if (hit && hit.root_ar === targetRoot) {
-        occurrences.push({
-          lessonSlug: lesson.slug,
-          lessonTitle: lesson.title_ar,
-          unitTitle: unitTitleOf(lesson.unitSlug),
-          volumeNumber: lesson.volumeNumber,
-          position: seg.index,
-          snippet: makeSnippet(lesson.body_ar, seg.start, seg.end),
-        });
-      }
-    }
-  }
-
-  return { root_ar: targetRoot, total: occurrences.length, occurrences };
-}
-
-function unitTitleOf(unitSlug: string): string {
-  return UNITS.find((u) => u.slug === unitSlug)?.title_ar ?? "";
 }
