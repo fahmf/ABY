@@ -29,21 +29,23 @@ export async function getVolumes(): Promise<Volume[]> {
 export async function getVolume(number: number): Promise<Volume | null> {
   if (!isSupabaseConfigured())
     return seedVolumes().find((v) => v.number === number) ?? null;
+  const fallback = () => seedVolumes().find((v) => v.number === number) ?? null;
   try {
     const supabase = await createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("volumes")
       .select("number,title_ar,slug")
       .eq("number", number)
       .maybeSingle();
-    if (!data) return null;
+    if (error) throw error;
+    if (!data) return fallback();
     return {
       number: data.number as number,
       title_ar: data.title_ar as string,
       slug: data.slug as string,
     };
   } catch {
-    return seedVolumes().find((v) => v.number === number) ?? null;
+    return fallback();
   }
 }
 
@@ -74,15 +76,18 @@ export async function getUnit(
 ): Promise<Unit | null> {
   if (!isSupabaseConfigured())
     return seedUnits(volumeNumber).find((u) => u.slug === unitSlug) ?? null;
+  const fallback = () =>
+    seedUnits(volumeNumber).find((u) => u.slug === unitSlug) ?? null;
   try {
     const supabase = await createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("units")
       .select("slug,number,title_ar,volumes!inner(number)")
       .eq("slug", unitSlug)
       .eq("volumes.number", volumeNumber)
       .maybeSingle();
-    if (!data) return null;
+    if (error) throw error;
+    if (!data) return fallback();
     const u = data as unknown as UnitRow;
     return {
       slug: u.slug,
@@ -91,7 +96,7 @@ export async function getUnit(
       volumeNumber: u.volumes.number,
     };
   } catch {
-    return seedUnits(volumeNumber).find((u) => u.slug === unitSlug) ?? null;
+    return fallback();
   }
 }
 
@@ -116,9 +121,11 @@ export async function getLessons(unitSlug: string): Promise<Lesson[]> {
 export async function getLesson(lessonSlug: string): Promise<Lesson | null> {
   if (!isSupabaseConfigured())
     return seedLessons().find((l) => l.slug === lessonSlug) ?? null;
+  const fallback = () =>
+    seedLessons().find((l) => l.slug === lessonSlug) ?? null;
   try {
     const supabase = await createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("lessons")
       .select(
         "slug,title_ar,body_ar,units!inner(slug,volumes!inner(number))"
@@ -126,10 +133,24 @@ export async function getLesson(lessonSlug: string): Promise<Lesson | null> {
       .eq("slug", lessonSlug)
       .limit(1)
       .maybeSingle();
-    if (!data) return null;
+    if (error) throw error;
+    if (!data) return fallback();
     return mapLessonRow(data as unknown as LessonRow);
   } catch {
-    return seedLessons().find((l) => l.slug === lessonSlug) ?? null;
+    return fallback();
+  }
+}
+
+/** Semua slug pelajaran (published) untuk sitemap. */
+export async function getAllLessonSlugs(): Promise<string[]> {
+  if (!isSupabaseConfigured()) return seedLessons().map((l) => l.slug);
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from("lessons").select("slug");
+    if (error || !data) throw error;
+    return (data as { slug: string }[]).map((r) => r.slug);
+  } catch {
+    return seedLessons().map((l) => l.slug);
   }
 }
 

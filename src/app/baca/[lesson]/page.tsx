@@ -1,10 +1,28 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ReaderText } from "@/components/reader/reader-text";
+import { stripDiacritics } from "@/lib/arabic";
 import { getUnit, getLesson } from "@/lib/data/repository";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ lesson: string }>;
+}): Promise<Metadata> {
+  const { lesson } = await params;
+  const data = await getLesson(lesson);
+  if (!data) return { title: "النص غير موجود" };
+  const desc = stripDiacritics(data.body_ar).slice(0, 150);
+  return {
+    title: `${data.title_ar} — العربية بين يديك`,
+    description: desc,
+    openGraph: { title: data.title_ar, description: desc },
+  };
+}
 
 export default async function ReadPage({
   params,
