@@ -1,9 +1,23 @@
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { buildHit, searchSeed, type SearchHit } from "./search-core";
+import { lookupWord } from "./dictionary";
+import { buildHit, searchByRoot, searchSeed, type SearchHit } from "./search-core";
 import { LESSONS, UNITS } from "./seed";
 
 export type { SearchHit };
+export type SearchMode = "text" | "root";
+
+/** Pencarian terpadu: mode "text" (substring) atau "root" (kata se-akar). */
+export async function search(
+  query: string,
+  mode: SearchMode = "text"
+): Promise<SearchHit[]> {
+  if (mode === "root") {
+    // Pencarian akar berbasis seed lookup (akurat untuk korpus seed).
+    return searchByRoot(query, LESSONS, UNITS, lookupWord);
+  }
+  return searchLessons(query);
+}
 
 /**
  * Cari teks di judul & isi pelajaran (published). Pencocokan tanpa harakat.

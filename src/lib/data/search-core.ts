@@ -1,5 +1,5 @@
-import { normalize, stripDiacritics } from "@/lib/arabic";
-import type { Lesson, Unit } from "./types";
+import { normalize, stripDiacritics, tokenize } from "@/lib/arabic";
+import type { DictionaryEntry, Lesson, Unit } from "./types";
 
 // Logika pencarian murni (tanpa I/O) — dapat diuji unit & dipakai ulang.
 
@@ -59,6 +59,50 @@ export function searchSeed(
       out.push(
         buildHit(l.slug, l.title_ar, l.body_ar, unit?.title_ar ?? "", l.volumeNumber, q)
       );
+    }
+  }
+  return out;
+}
+
+/**
+ * Pencarian berbasis akar: temukan pelajaran yang memuat kata se-akar dengan
+ * query, memakai `lookup` (bentuk kata → entri kamus). Mengembalikan teks yang
+ * mengandung minimal satu kata berakar sama; cuplikan di kata pertama yg cocok.
+ */
+export function searchByRoot(
+  query: string,
+  lessons: Lesson[],
+  units: Unit[],
+  lookup: (word: string) => DictionaryEntry | null
+): SearchHit[] {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const target = lookup(q);
+  if (!target) return [];
+  const root = target.root_ar;
+
+  const out: SearchHit[] = [];
+  for (const l of lessons) {
+    const unit = units.find((u) => u.slug === l.unitSlug);
+    let matchStart = -1;
+    for (const seg of tokenize(l.body_ar)) {
+      if (seg.type !== "word") continue;
+      const hit = lookup(seg.text);
+      if (hit && hit.root_ar === root) {
+        matchStart = seg.start;
+        break;
+      }
+    }
+    if (matchStart >= 0) {
+      // Cuplikan di sekitar kata yang cocok (dari teks asli berharakat).
+      const snippet = snippetAround(l.body_ar, matchStart, 4);
+      out.push({
+        lessonSlug: l.slug,
+        lessonTitle: l.title_ar,
+        unitTitle: unit?.title_ar ?? "",
+        volumeNumber: l.volumeNumber,
+        snippet,
+      });
     }
   }
   return out;
