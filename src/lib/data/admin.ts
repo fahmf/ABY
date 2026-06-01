@@ -36,6 +36,12 @@ export type AdminEntry = {
   synonyms_ar: string[];
   antonyms_ar: string[];
   examples_ar: string[];
+  word_type?: string;
+  plural_ar?: string;
+  singular_ar?: string;
+  past_ar?: string;
+  present_ar?: string;
+  masdar_ar?: string;
   status: "draft" | "published";
 };
 
@@ -46,6 +52,12 @@ type EntryRow = {
   synonyms_ar: unknown;
   antonyms_ar: unknown;
   examples_ar: unknown;
+  word_type: string | null;
+  plural_ar: string | null;
+  singular_ar: string | null;
+  past_ar: string | null;
+  present_ar: string | null;
+  masdar_ar: string | null;
   status: "draft" | "published";
   roots: { root_ar: string } | null;
 };
@@ -74,6 +86,12 @@ function mapEntry(r: EntryRow): AdminEntry {
     synonyms_ar: strArr(r.synonyms_ar),
     antonyms_ar: strArr(r.antonyms_ar),
     examples_ar: exArr(r.examples_ar),
+    word_type: r.word_type ?? undefined,
+    plural_ar: r.plural_ar ?? undefined,
+    singular_ar: r.singular_ar ?? undefined,
+    past_ar: r.past_ar ?? undefined,
+    present_ar: r.present_ar ?? undefined,
+    masdar_ar: r.masdar_ar ?? undefined,
     status: r.status,
   };
 }
@@ -85,7 +103,7 @@ export async function listDictionaryEntries(
   const base = supabase
     .from("dictionary_entries")
     .select(
-      "id,lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,status,roots(root_ar)"
+      "id,lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,word_type,plural_ar,singular_ar,past_ar,present_ar,masdar_ar,status,roots(root_ar)"
     )
     .order("created_at", { ascending: false });
   const { data } = status ? await base.eq("status", status) : await base;
@@ -97,7 +115,7 @@ export async function getDictionaryEntry(id: string): Promise<AdminEntry | null>
   const { data } = await supabase
     .from("dictionary_entries")
     .select(
-      "id,lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,status,roots(root_ar)"
+      "id,lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,word_type,plural_ar,singular_ar,past_ar,present_ar,masdar_ar,status,roots(root_ar)"
     )
     .eq("id", id)
     .maybeSingle();

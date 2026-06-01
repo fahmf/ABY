@@ -57,6 +57,63 @@ export default async function EditEntryPage({
           />
         </div>
 
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="word_type">نوع الكلمة (اسم، فعل، حرف)</Label>
+            <Input
+              id="word_type"
+              name="word_type"
+              dir="rtl"
+              defaultValue={entry.word_type || ""}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="masdar_ar">المصدر</Label>
+            <Input
+              id="masdar_ar"
+              name="masdar_ar"
+              dir="rtl"
+              defaultValue={entry.masdar_ar || ""}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="plural_ar">الجمع</Label>
+            <Input
+              id="plural_ar"
+              name="plural_ar"
+              dir="rtl"
+              defaultValue={entry.plural_ar || ""}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="singular_ar">المفرد</Label>
+            <Input
+              id="singular_ar"
+              name="singular_ar"
+              dir="rtl"
+              defaultValue={entry.singular_ar || ""}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="past_ar">الماضي</Label>
+            <Input
+              id="past_ar"
+              name="past_ar"
+              dir="rtl"
+              defaultValue={entry.past_ar || ""}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="present_ar">المضارع</Label>
+            <Input
+              id="present_ar"
+              name="present_ar"
+              dir="rtl"
+              defaultValue={entry.present_ar || ""}
+            />
+          </div>
+        </div>
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="synonyms_ar">المرادفات (افصِل بفاصلة)</Label>
           <Input

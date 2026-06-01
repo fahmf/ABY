@@ -11,6 +11,12 @@ type DbRow = {
   antonyms_ar: unknown;
   examples_ar: unknown;
   roots: { root_ar: string } | null;
+  word_type: string | null;
+  plural_ar: string | null;
+  singular_ar: string | null;
+  past_ar: string | null;
+  present_ar: string | null;
+  masdar_ar: string | null;
 };
 
 function asStringArray(v: unknown): string[] {
@@ -39,6 +45,12 @@ function mapDbRow(row: DbRow): DictionaryEntry {
     synonyms_ar: asStringArray(row.synonyms_ar),
     antonyms_ar: asStringArray(row.antonyms_ar),
     examples_ar: asExamples(row.examples_ar),
+    word_type: row.word_type ?? undefined,
+    plural_ar: row.plural_ar ?? undefined,
+    singular_ar: row.singular_ar ?? undefined,
+    past_ar: row.past_ar ?? undefined,
+    present_ar: row.present_ar ?? undefined,
+    masdar_ar: row.masdar_ar ?? undefined,
   };
 }
 
@@ -56,7 +68,7 @@ export async function lookupEntry(
       let query = supabase
         .from("dictionary_entries")
         .select(
-          "lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,roots(root_ar)"
+          "lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,word_type,plural_ar,singular_ar,past_ar,present_ar,masdar_ar,roots(root_ar)"
         )
         .eq("status", "published");
       

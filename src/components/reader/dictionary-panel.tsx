@@ -66,6 +66,47 @@ export function DictionaryPanel({
 
       {!loading && entry && (
         <div className="flex flex-col gap-5 overflow-y-auto px-4 pb-6">
+          {/* Morphology Info */}
+          {(entry.word_type || entry.plural_ar || entry.singular_ar || entry.past_ar || entry.present_ar || entry.masdar_ar) && (
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground border-b pb-3">
+              {entry.word_type && (
+                <Badge variant="outline" className="bg-primary/5 text-primary">
+                  {entry.word_type}
+                </Badge>
+              )}
+              {entry.plural_ar && (
+                <span className="flex items-center gap-1 border-r-2 pr-2">
+                  <span className="text-xs">الجمع:</span>
+                  <span className="font-naskh text-foreground">{entry.plural_ar}</span>
+                </span>
+              )}
+              {entry.singular_ar && (
+                <span className="flex items-center gap-1 border-r-2 pr-2">
+                  <span className="text-xs">المفرد:</span>
+                  <span className="font-naskh text-foreground">{entry.singular_ar}</span>
+                </span>
+              )}
+              {entry.past_ar && (
+                <span className="flex items-center gap-1 border-r-2 pr-2">
+                  <span className="text-xs">الماضي:</span>
+                  <span className="font-naskh text-foreground">{entry.past_ar}</span>
+                </span>
+              )}
+              {entry.present_ar && (
+                <span className="flex items-center gap-1 border-r-2 pr-2">
+                  <span className="text-xs">المضارع:</span>
+                  <span className="font-naskh text-foreground">{entry.present_ar}</span>
+                </span>
+              )}
+              {entry.masdar_ar && (
+                <span className="flex items-center gap-1 border-r-2 pr-2">
+                  <span className="text-xs">المصدر:</span>
+                  <span className="font-naskh text-foreground">{entry.masdar_ar}</span>
+                </span>
+              )}
+            </div>
+          )}
+
           <Field label="المعنى">
             <p className="leading-relaxed">{entry.meaning_ar}</p>
           </Field>

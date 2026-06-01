@@ -28,4 +28,10 @@ export type DictionaryEntry = {
   synonyms_ar: string[];
   antonyms_ar: string[];
   examples_ar: string[];
+  word_type?: string;
+  plural_ar?: string;
+  singular_ar?: string;
+  past_ar?: string;
+  present_ar?: string;
+  masdar_ar?: string;
 };
