@@ -2,7 +2,7 @@ import "server-only";
 
 import { normalize, tokenize } from "@/lib/arabic";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateEntries, isGeminiConfigured } from "./gemini";
+import { DEFAULT_GEMINI_MODEL, generateEntries, isGeminiConfigured } from "./gemini";
 import { chunk, rootKey, uniqueWords } from "./text";
 
 export { uniqueWords };
@@ -79,7 +79,7 @@ export async function ingestLesson(lessonId: string): Promise<IngestResult> {
       antonyms_ar: e.antonyms ?? [],
       examples_ar: (e.examples ?? []).map((text) => ({ text })),
       status: "draft" as const,
-      generated_by: process.env.GEMINI_MODEL || "gemini-3.5-flash",
+      generated_by: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
     };
   });
   if (dictRows.length > 0) {

@@ -79,9 +79,19 @@ export async function deleteLesson(id: string) {
 // ---------- pipeline ingest (Gemini) ----------
 export async function ingestLessonAction(id: string) {
   await requireStaff();
-  await ingestLesson(id);
+  try {
+    await ingestLesson(id);
+  } catch (err) {
+    // Kegagalan (mis. Gemini kelebihan beban / 503) tidak boleh meledakkan
+    // halaman admin — kembalikan ke daftar dengan pesan ramah.
+    const status = (err as { status?: number; code?: number })?.status ??
+      (err as { status?: number; code?: number })?.code;
+    const reason = status === 503 || status === 429 ? "busy" : "failed";
+    redirect(`/admin?ingest=${reason}`);
+  }
   revalidatePath("/admin");
   revalidatePath("/admin/dictionary");
+  redirect("/admin?ingest=ok");
 }
 
 // ---------- verifikasi kamus ----------
