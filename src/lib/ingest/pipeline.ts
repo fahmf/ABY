@@ -7,7 +7,7 @@ import { chunk, rootKey, uniqueWords } from "./text";
 
 export { uniqueWords };
 
-const BATCH_SIZE = 40;
+const BATCH_SIZE = 100;
 
 export type IngestResult = {
   lessonId: string;

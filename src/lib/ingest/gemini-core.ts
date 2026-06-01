@@ -115,7 +115,7 @@ export async function generateEntries(
   }
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
   const models = opts?.models?.length ? opts.models : modelChain();
-  const maxAttempts = 4; // per model
+  const maxAttempts = 5; // per model
 
   let lastErr: unknown;
   for (const model of models) {
@@ -150,8 +150,18 @@ export async function generateEntries(
         if (status !== undefined && !RETRYABLE.has(status)) throw err;
         // Sudah percobaan terakhir untuk model ini → pindah ke fallback.
         if (attempt === maxAttempts) break;
-        // Backoff eksponensial + jitter: 1s, 2s, 4s (±250ms).
-        const delay = 2 ** (attempt - 1) * 1000 + Math.random() * 250;
+        // Backoff eksponensial dasar
+        let delay = 2 ** (attempt - 1) * 2000 + Math.random() * 500;
+        
+        // Coba tangkap saran waktu dari pesan error Gemini ("Please retry in X.Xs")
+        if (err instanceof Error) {
+          const match = err.message.match(/retry in ([\d\.]+)s/i);
+          if (match && match[1]) {
+            const suggested = parseFloat(match[1]) * 1000 + 500; // +500ms safety margin
+            delay = Math.max(delay, suggested);
+          }
+        }
+        
         await sleep(delay);
       }
     }
