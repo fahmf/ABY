@@ -154,6 +154,52 @@ export async function getAllLessonSlugs(): Promise<string[]> {
   }
 }
 
+/** Ambil kecocokan token dengan kamus (position -> lemma) untuk suatu pelajaran. */
+export async function getDictionaryMatches(lessonSlug: string): Promise<Record<number, string>> {
+  const matches: Record<number, string> = {};
+  if (!isSupabaseConfigured()) return matches;
+  try {
+    const supabase = await createClient();
+    
+    const { data: lesson } = await supabase
+      .from("lessons")
+      .select("id")
+      .eq("slug", lessonSlug)
+      .maybeSingle();
+      
+    if (!lesson) return matches;
+
+    const { data: tokens } = await supabase
+      .from("tokens")
+      .select("position, lemma_ar")
+      .eq("lesson_id", lesson.id)
+      .not("lemma_ar", "is", null);
+      
+    if (!tokens || tokens.length === 0) return matches;
+    
+    const uniqueLemmas = [...new Set(tokens.map((t) => t.lemma_ar as string))];
+    
+    const { data: dictEntries } = await supabase
+      .from("dictionary_entries")
+      .select("lemma_ar")
+      .eq("status", "published")
+      .in("lemma_ar", uniqueLemmas);
+      
+    if (!dictEntries) return matches;
+    
+    const validLemmas = new Set(dictEntries.map((e) => e.lemma_ar));
+    
+    for (const t of tokens as { position: number; lemma_ar: string }[]) {
+      if (validLemmas.has(t.lemma_ar)) {
+        matches[t.position] = t.lemma_ar;
+      }
+    }
+  } catch (err) {
+    console.error(err);
+  }
+  return matches;
+}
+
 // ---------- bentuk baris hasil join Supabase ----------
 type UnitRow = {
   slug: string;

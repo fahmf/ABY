@@ -12,14 +12,23 @@ import {
 import { RootFrequencyButton } from "./root-frequency";
 import type { DictionaryEntry } from "@/lib/data/types";
 
-export function DictionaryPanel({ surface }: { surface: string }) {
+export function DictionaryPanel({
+  surface,
+  lemma,
+}: {
+  surface: string;
+  lemma?: string;
+}) {
   const [entry, setEntry] = React.useState<DictionaryEntry | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     let active = true;
     setLoading(true);
-    fetch(`/api/dictionary?q=${encodeURIComponent(surface)}`)
+    let url = `/api/dictionary?q=${encodeURIComponent(surface)}`;
+    if (lemma) url += `&lemma=${encodeURIComponent(lemma)}`;
+    
+    fetch(url)
       .then((r) => r.json())
       .then((d) => {
         if (active) setEntry(d.entry ?? null);
@@ -29,7 +38,7 @@ export function DictionaryPanel({ surface }: { surface: string }) {
     return () => {
       active = false;
     };
-  }, [surface]);
+  }, [surface, lemma]);
 
   return (
     <div className="flex flex-col gap-4">

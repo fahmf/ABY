@@ -47,24 +47,30 @@ function mapDbRow(row: DbRow): DictionaryEntry {
  * bila terkonfigurasi, selain itu dari data seed.
  */
 export async function lookupEntry(
-  surface: string
+  surface: string,
+  exactLemma?: string
 ): Promise<DictionaryEntry | null> {
   if (isSupabaseConfigured()) {
     try {
       const supabase = await createClient();
-      const { data } = await supabase
+      let query = supabase
         .from("dictionary_entries")
         .select(
           "lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,roots(root_ar)"
         )
-        .in("lemma_norm", lemmaCandidates(surface))
-        .eq("status", "published")
-        .limit(1)
-        .maybeSingle();
+        .eq("status", "published");
+      
+      if (exactLemma) {
+        query = query.eq("lemma_ar", exactLemma);
+      } else {
+        query = query.in("lemma_norm", lemmaCandidates(surface));
+      }
+
+      const { data } = await query.limit(1).maybeSingle();
       if (data) return mapDbRow(data as unknown as DbRow);
     } catch {
       // jatuh ke seed di bawah
     }
   }
-  return lookupWord(surface);
+  return lookupWord(exactLemma || surface);
 }

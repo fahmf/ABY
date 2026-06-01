@@ -6,7 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ReaderText } from "@/components/reader/reader-text";
 import { stripDiacritics } from "@/lib/arabic";
-import { getUnit, getLesson } from "@/lib/data/repository";
+import { getUnit, getLesson, getDictionaryMatches } from "@/lib/data/repository";
 
 export async function generateMetadata({
   params,
@@ -33,7 +33,10 @@ export default async function ReadPage({
   const data = await getLesson(lesson);
   if (!data) notFound();
 
-  const unit = await getUnit(data.volumeNumber, data.unitSlug);
+  const [unit, dictMatches] = await Promise.all([
+    getUnit(data.volumeNumber, data.unitSlug),
+    getDictionaryMatches(data.slug),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
@@ -51,7 +54,7 @@ export default async function ReadPage({
         انقر أيّ كلمة لعرض معناها في المعجم.
       </p>
 
-      <ReaderText text={data.body_ar} />
+      <ReaderText text={data.body_ar} dictMatches={dictMatches} />
     </div>
   );
 }
