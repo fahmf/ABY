@@ -6,13 +6,13 @@ import {
   Languages,
   Pencil,
   Plus,
-  Sparkles,
   Trash2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { IngestButton } from "@/components/admin/ingest-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireStaff } from "@/lib/auth";
@@ -148,14 +148,7 @@ export default async function AdminDashboard({
                   </Button>
                 </form>
                 <form action={ingestLessonAction.bind(null, l.id)}>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    title="معالجة (الجذر + المعجم)"
-                    disabled={!geminiOK}
-                  >
-                    <Sparkles className="size-4" />
-                  </Button>
+                  <IngestButton disabled={!geminiOK} />
                 </form>
                 <Button asChild variant="ghost" size="icon" title="تعديل">
                   <Link href={`/admin/lessons/${l.id}`}>
