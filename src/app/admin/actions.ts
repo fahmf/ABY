@@ -168,6 +168,30 @@ export async function deleteEntry(id: string) {
   revalidatePath("/admin/dictionary");
 }
 
+export async function bulkSetEntryStatus(
+  ids: string[],
+  status: "draft" | "published"
+) {
+  const profile = await requireStaff();
+  const supabase = await createClient();
+  await supabase
+    .from("dictionary_entries")
+    .update({
+      status,
+      reviewed_by: status === "published" ? profile.id : null,
+      reviewed_at: status === "published" ? new Date().toISOString() : null,
+    })
+    .in("id", ids);
+  revalidatePath("/admin/dictionary");
+}
+
+export async function bulkDeleteEntries(ids: string[]) {
+  await requireStaff();
+  const supabase = await createClient();
+  await supabase.from("dictionary_entries").delete().in("id", ids);
+  revalidatePath("/admin/dictionary");
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
