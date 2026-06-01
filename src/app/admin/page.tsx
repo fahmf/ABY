@@ -25,9 +25,11 @@ import {
   deleteLesson,
   ingestLessonAction,
   fastIndexAction,
+  rematchAction,
   setLessonStatus,
 } from "./actions";
 import { FastIndexButton } from "@/components/admin/fast-index-button";
+import { RematchButton } from "@/components/admin/rematch-button";
 
 export const dynamic = "force-dynamic";
 // Pipeline ingest (Gemini) bisa berjalan lama; beri tenggang waktu lebih besar.
@@ -57,6 +59,9 @@ export default async function AdminDashboard({
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">إدارة المحتوى</h1>
         <div className="flex items-center gap-2">
+          <form action={rematchAction}>
+            <RematchButton />
+          </form>
           <Button asChild variant="outline" className="gap-1.5">
             <Link href="/admin/dictionary">
               <Languages className="size-4" />
