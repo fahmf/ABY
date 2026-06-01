@@ -1,5 +1,5 @@
 // Service worker ABY — cache app shell & strategi runtime sederhana.
-const CACHE = "aby-v1";
+const CACHE = "aby-v2";
 const APP_SHELL = ["/", "/cari", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -27,6 +27,9 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  // Halaman admin: JANGAN pernah di-cache (privasi + selalu butuh sesi segar).
+  if (url.pathname.startsWith("/admin")) return;
+
   // API: network-first (data segar), fallback cache bila offline.
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(
@@ -41,7 +44,22 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navigasi & aset: cache-first dgn refresh latar.
+  // Navigasi (dokumen HTML): network-first agar konten published tidak basi,
+  // dengan fallback cache saat offline.
+  if (request.mode === "navigate" || request.destination === "document") {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(request, copy));
+          return res;
+        })
+        .catch(() => caches.match(request).then((c) => c || caches.match("/")))
+    );
+    return;
+  }
+
+  // Aset statis (mis. /_next/static, gambar, font): cache-first dgn refresh latar.
   event.respondWith(
     caches.match(request).then((cached) => {
       const network = fetch(request)

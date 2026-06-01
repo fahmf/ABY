@@ -24,10 +24,10 @@ export function DictionaryPanel({
 
   React.useEffect(() => {
     let active = true;
-    const t = setTimeout(() => setLoading(true), 0);
+    const t = setTimeout(() => active && setLoading(true), 0);
     let url = `/api/dictionary?q=${encodeURIComponent(surface)}`;
     if (lemma) url += `&lemma=${encodeURIComponent(lemma)}`;
-    
+
     fetch(url)
       .then((r) => r.json())
       .then((d) => {
@@ -37,6 +37,7 @@ export function DictionaryPanel({
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
+      clearTimeout(t);
     };
   }, [surface, lemma]);
 

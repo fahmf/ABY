@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { searchByRoot, searchSeed, snippetAround } from "@/lib/data/search-core";
+import { orIlike, searchByRoot, searchSeed, snippetAround } from "@/lib/data/search-core";
 import type { DictionaryEntry, Lesson, Unit } from "@/lib/data/types";
 
 const units: Unit[] = [
@@ -105,6 +105,30 @@ describe("searchByRoot", () => {
 
   test("query terlalu pendek → kosong", () => {
     expect(searchByRoot("ا", rootLessons, units, lookup)).toEqual([]);
+  });
+});
+
+describe("orIlike", () => {
+  test("membungkus pola dalam tanda kutip & menyusun multi-kolom", () => {
+    expect(orIlike(["a", "b"], "بيت")).toBe(
+      'a.ilike."%بيت%",b.ilike."%بيت%"'
+    );
+  });
+
+  test("escape wildcard LIKE (% _ \\)", () => {
+    // LIKE-escape ('\%') lalu PostgREST-escape backslash ('\\') → dua backslash.
+    expect(orIlike(["a"], "50%")).toBe('a.ilike."%50\\\\%%"');
+    expect(orIlike(["a"], "a_b")).toBe('a.ilike."%a\\\\_b%"');
+  });
+
+  test("koma & tanda kurung tidak merusak struktur filter", () => {
+    // Koma tetap di dalam tanda kutip → bukan pemisah filter PostgREST.
+    expect(orIlike(["a"], "x,y")).toBe('a.ilike."%x,y%"');
+    expect(orIlike(["a"], "f(o)")).toBe('a.ilike."%f(o)%"');
+  });
+
+  test("escape tanda kutip ganda & backslash untuk lapis PostgREST", () => {
+    expect(orIlike(["a"], '"')).toBe('a.ilike."%\\"%"');
   });
 });
 

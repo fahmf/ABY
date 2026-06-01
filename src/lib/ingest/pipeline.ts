@@ -4,6 +4,7 @@ import { normalize, tokenize } from "@/lib/arabic";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_GEMINI_MODEL, generateEntries, isGeminiConfigured } from "./gemini";
 import { chunk, rootKey, uniqueWords } from "./text";
+import { replaceLessonTokens, type TokenInsert } from "./tokens";
 
 export { uniqueWords };
 
@@ -53,30 +54,23 @@ export async function ingestLesson(lessonId: string): Promise<IngestResult> {
   const reps = [...words.values()];
   const batches = chunk(reps, BATCH_SIZE);
 
-  // Mulai segar → ganti token dengan kerangka (lemma/akar kosong).
+  // Mulai segar → ganti token dengan kerangka (lemma/akar kosong) secara atomik.
   if (cursor <= 0) {
     cursor = 0;
-    await supabase.from("tokens").delete().eq("lesson_id", lessonId);
-    const skeleton: {
-      lesson_id: string;
-      position: number;
-      surface_ar: string;
-      char_start: number;
-      char_end: number;
-    }[] = [];
+    const skeleton: TokenInsert[] = [];
     for (const seg of tokenize(body)) {
       if (seg.type !== "word") continue;
       skeleton.push({
         lesson_id: lessonId,
         position: seg.index,
         surface_ar: seg.text,
+        lemma_ar: null,
+        root_id: null,
         char_start: seg.start,
         char_end: seg.end,
       });
     }
-    for (const part of chunk(skeleton, 500)) {
-      await supabase.from("tokens").insert(part);
-    }
+    await replaceLessonTokens(supabase, lessonId, skeleton);
   }
 
   // Petakan bentuk ternormalkan → id token (untuk mengisi lemma/akar nanti).
@@ -106,6 +100,16 @@ export async function ingestLesson(lessonId: string): Promise<IngestResult> {
     }
     const rootMap = new Map<string, string>(); // key → root_id
     if (rootRows.size > 0) {
+      // Catat yang sudah ada agar `newRoots` hanya menghitung yang benar-benar baru.
+      const { data: before } = await supabase
+        .from("roots")
+        .select("normalized")
+        .in("normalized", [...rootRows.keys()]);
+      const existing = new Set(
+        ((before as { normalized: string }[]) ?? []).map((r) => r.normalized)
+      );
+      newRoots += [...rootRows.keys()].filter((k) => !existing.has(k)).length;
+
       await supabase.from("roots").upsert(
         [...rootRows].map(([normalized, root_ar]) => ({ normalized, root_ar })),
         { onConflict: "normalized", ignoreDuplicates: true }
@@ -117,7 +121,6 @@ export async function ingestLesson(lessonId: string): Promise<IngestResult> {
       for (const r of (roots as { id: string; normalized: string }[]) ?? []) {
         rootMap.set(r.normalized, r.id);
       }
-      newRoots += rootRows.size;
     }
 
     // 2) Upsert dictionary_entries (draft) tanpa menimpa entri terverifikasi.
@@ -139,10 +142,19 @@ export async function ingestLesson(lessonId: string): Promise<IngestResult> {
       generated_by: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
     }));
     if (dictRows.length > 0) {
+      const lemmas = dictRows.map((d) => d.lemma_ar);
+      const { data: before } = await supabase
+        .from("dictionary_entries")
+        .select("lemma_ar")
+        .in("lemma_ar", lemmas);
+      const existing = new Set(
+        ((before as { lemma_ar: string }[]) ?? []).map((r) => r.lemma_ar)
+      );
+      newEntries += lemmas.filter((l) => !existing.has(l)).length;
+
       await supabase
         .from("dictionary_entries")
         .upsert(dictRows, { onConflict: "lemma_ar", ignoreDuplicates: true });
-      newEntries += dictRows.length;
     }
 
     // 3) Isi lemma/akar pada token-token kata batch ini (idempoten).

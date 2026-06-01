@@ -10,11 +10,16 @@
 
 ## 1. Jalankan migrasi skema
 Buka **Supabase Dashboard → SQL Editor → New query**, lalu tempel & jalankan
-**berurutan**:
-1. Isi `supabase/migrations/0001_init.sql`
-2. Isi `supabase/migrations/0002_dictionary_lemma_norm.sql`
+**semua** file di `supabase/migrations/` secara **berurutan** (0001 → 0008):
+0001 init · 0002 lemma_norm · 0003 ingest_cursor · 0004 dictionary_helpers ·
+0005 morphology · 0006 staff_approval_security · 0007 replace_lesson_tokens ·
+0008 search_trgm_indexes.
 
 (Atau dengan Supabase CLI: `supabase db push`.)
+
+> Migrasi **0006** menutup celah eskalasi hak akses: pendaftar baru kini default
+> `approved = false` (tidak otomatis jadi staff). Pastikan akun admin pertama
+> di-set `approved = true` (lihat langkah 3).
 
 ## 2. Seed konten Jilid 1 (opsional, untuk data awal)
 Tanam jilid/unit/teks contoh dari `src/lib/data/seed.ts` ke DB:
@@ -28,11 +33,15 @@ Skrip ini memakai **service role key** dari `.env.local` (server-side).
 ## 3. Buat akun admin pertama
 1. **Authentication → Users → Add user** (email + password).
 2. Salin UUID user.
-3. **SQL Editor**:
+3. **SQL Editor** (trigger sudah membuat baris profile saat user dibuat —
+   cukup promosikan & setujui):
    ```sql
-   insert into profiles (id, email, role)
-   values ('<USER_UUID>', '<email>', 'admin');
+   update profiles
+   set role = 'admin', approved = true
+   where id = '<USER_UUID>';
    ```
+   (Atau insert manual bila baris belum ada:
+   `insert into profiles (id, email, role, approved) values ('<USER_UUID>', '<email>', 'admin', true);`)
 
 ## 4. Jalankan & uji
 ```bash

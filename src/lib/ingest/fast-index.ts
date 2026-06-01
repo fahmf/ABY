@@ -2,7 +2,7 @@ import "server-only";
 
 import { lemmaCandidates, tokenize } from "@/lib/arabic";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { chunk } from "./text";
+import { replaceLessonTokens, type TokenInsert } from "./tokens";
 
 export type FastIndexResult = {
   lessonId: string;
@@ -64,15 +64,6 @@ export async function fastIndexLesson(lessonId: string): Promise<FastIndexResult
   }
 
   // 5. Bangun array tokens untuk di-insert
-  type TokenInsert = {
-    lesson_id: string;
-    position: number;
-    surface_ar: string;
-    char_start: number;
-    char_end: number;
-    lemma_ar: string | null;
-    root_id: string | null;
-  };
   const tokensToInsert: TokenInsert[] = [];
   
   for (const seg of words) {
@@ -101,12 +92,8 @@ export async function fastIndexLesson(lessonId: string): Promise<FastIndexResult
     });
   }
 
-  // 6. Delete old tokens & Insert new ones
-  await supabase.from("tokens").delete().eq("lesson_id", lesson.id);
-  
-  for (const part of chunk(tokensToInsert, 500)) {
-    await supabase.from("tokens").insert(part);
-  }
+  // 6. Ganti token lama dengan yang baru secara atomik.
+  await replaceLessonTokens(supabase, lesson.id, tokensToInsert);
 
   // 7. Update status pelajaran
   await supabase
