@@ -98,6 +98,10 @@ export async function generateEntries(
             responseMimeType: "application/json",
             responseSchema: SCHEMA,
             temperature: 0.2,
+            // Beri ruang besar agar batch banyak-kata tidak terpotong (JSON
+            // tak lengkap → gagal di-parse). Tier gratis dibatasi RPM, bukan
+            // TPM, jadi batch besar + sedikit request justru lebih efisien.
+            maxOutputTokens: 32768,
           },
         });
 
