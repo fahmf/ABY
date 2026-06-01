@@ -27,6 +27,9 @@ import {
 } from "./actions";
 
 export const dynamic = "force-dynamic";
+// Pipeline ingest (Gemini) bisa berjalan lama; beri tenggang waktu lebih besar.
+// Catatan: Vercel Hobby maksimum 60s; Pro hingga 300s.
+export const maxDuration = 60;
 
 const field =
   "border-input bg-background h-9 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]";
