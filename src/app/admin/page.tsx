@@ -28,8 +28,9 @@ import {
 
 export const dynamic = "force-dynamic";
 // Pipeline ingest (Gemini) bisa berjalan lama; beri tenggang waktu lebih besar.
-// Catatan: Vercel Hobby maksimum 60s; Pro hingga 300s.
-export const maxDuration = 60;
+// Catatan: Vercel Hobby maksimum 60s; Pro hingga 300s. Pipeline kini resumable —
+// bila tetap terpotong, klik "معالجة" lagi akan melanjutkan dari batch terakhir.
+export const maxDuration = 300;
 
 const field =
   "border-input bg-background h-9 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]";
@@ -82,8 +83,8 @@ export default async function AdminDashboard({
         <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
           <p className="text-muted-foreground">
-            خادم الذكاء الاصطناعي مزدحم حاليًّا (503). حاول المعالجة مرّةً أخرى
-            بعد قليل.
+            خادم الذكاء الاصطناعي مزدحم حاليًّا (503). تمّ حفظ التقدّم — اضغط
+            «معالجة» مرّةً أخرى لاحقًا لإكمال ما تبقّى من حيث توقّف.
           </p>
         </div>
       )}
