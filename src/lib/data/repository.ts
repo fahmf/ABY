@@ -1,6 +1,5 @@
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { tokenize, lemmaCandidates } from "@/lib/arabic";
 import type { Lesson, Unit, Volume } from "./types";
 import { LESSONS, UNITS, VOLUMES } from "./seed";
 
@@ -155,48 +154,26 @@ export async function getAllLessonSlugs(): Promise<string[]> {
   }
 }
 
-/** Ambil kecocokan token dengan kamus (position -> lemma) untuk suatu pelajaran. */
-export async function getDictionaryMatches(lessonSlug: string): Promise<Record<number, string>> {
+/**
+ * Ambil kecocokan token dengan kamus (position -> lemma) untuk suatu pelajaran.
+ * Memakai RPC `lesson_dictionary_matches` (migrasi 0005): satu round-trip yang
+ * meng-JOIN tokens × dictionary_entries di sisi DB, tanpa membawa daftar lemma
+ * unik ke query-string (menghindari batas panjang URL pada teks panjang).
+ */
+export async function getDictionaryMatches(
+  lessonSlug: string
+): Promise<Record<number, string>> {
   const matches: Record<number, string> = {};
   if (!isSupabaseConfigured()) return matches;
   try {
     const supabase = await createClient();
-    
-    const { data: lesson } = await supabase
-      .from("lessons")
-      .select("id, body_ar")
-      .eq("slug", lessonSlug)
-      .maybeSingle();
-      
-    if (!lesson) return matches;
-
-    const { data: tokens } = await supabase
-      .from("tokens")
-      .select("position, lemma_ar")
-      .eq("lesson_id", lesson.id)
-      .not("lemma_ar", "is", null);
-      
-    if (tokens && tokens.length > 0) {
-      const uniqueLemmas = [...new Set(tokens.map((t) => t.lemma_ar as string))];
-      
-      const { data: dictEntries } = await supabase
-        .from("dictionary_entries")
-        .select("lemma_ar")
-        .eq("status", "published")
-        .in("lemma_ar", uniqueLemmas);
-        
-      if (!dictEntries) return matches;
-      
-      const validLemmas = new Set(dictEntries.map((e) => e.lemma_ar));
-      
-      for (const t of tokens as { position: number; lemma_ar: string }[]) {
-        if (validLemmas.has(t.lemma_ar)) {
-          matches[t.position] = t.lemma_ar;
-        }
-      }
-      return matches;
+    const { data, error } = await supabase.rpc("lesson_dictionary_matches", {
+      p_slug: lessonSlug,
+    });
+    if (error || !data) return matches;
+    for (const r of data as { position: number; lemma_ar: string }[]) {
+      matches[r.position] = r.lemma_ar;
     }
-    
   } catch (err) {
     console.error(err);
   }

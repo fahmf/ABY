@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { MORPHOLOGY_COLUMNS, pickMorphology, type Morphology } from "./types";
 
 // Helper data untuk panel admin (staff). RLS membolehkan staff melihat draft.
 
@@ -37,7 +38,7 @@ export type AdminEntry = {
   antonyms_ar: string[];
   examples_ar: string[];
   status: "draft" | "published";
-};
+} & Morphology;
 
 type EntryRow = {
   id: string;
@@ -48,7 +49,7 @@ type EntryRow = {
   examples_ar: unknown;
   status: "draft" | "published";
   roots: { root_ar: string } | null;
-};
+} & Record<string, unknown>;
 
 function strArr(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
@@ -75,6 +76,7 @@ function mapEntry(r: EntryRow): AdminEntry {
     antonyms_ar: strArr(r.antonyms_ar),
     examples_ar: exArr(r.examples_ar),
     status: r.status,
+    ...pickMorphology(r),
   };
 }
 
@@ -85,7 +87,7 @@ export async function listDictionaryEntries(
   const base = supabase
     .from("dictionary_entries")
     .select(
-      "id,lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,status,roots(root_ar)"
+      `id,lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,status,${MORPHOLOGY_COLUMNS},roots(root_ar)`
     )
     .order("created_at", { ascending: false });
   const { data } = status ? await base.eq("status", status) : await base;
@@ -97,7 +99,7 @@ export async function getDictionaryEntry(id: string): Promise<AdminEntry | null>
   const { data } = await supabase
     .from("dictionary_entries")
     .select(
-      "id,lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,status,roots(root_ar)"
+      `id,lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,status,${MORPHOLOGY_COLUMNS},roots(root_ar)`
     )
     .eq("id", id)
     .maybeSingle();

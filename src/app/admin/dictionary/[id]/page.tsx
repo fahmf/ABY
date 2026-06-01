@@ -88,6 +88,82 @@ export default async function EditEntryPage({
           />
         </div>
 
+        {/* ---------- الصرف: نوع الكلمة + جمع/مفرد + تصريف الفعل ---------- */}
+        <fieldset className="grid grid-cols-1 gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
+          <legend className="px-1 text-xs font-medium text-muted-foreground">
+            الصرف (اختياري — املأ ما ينطبق)
+          </legend>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="word_type">نوع الكلمة</Label>
+            <Input
+              id="word_type"
+              name="word_type"
+              dir="rtl"
+              placeholder="اسم / فعل / حرف"
+              defaultValue={entry.word_type ?? ""}
+              className="font-naskh"
+            />
+          </div>
+
+          <div className="hidden sm:block" aria-hidden />
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="plural_ar">الجمع</Label>
+            <Input
+              id="plural_ar"
+              name="plural_ar"
+              dir="rtl"
+              defaultValue={entry.plural_ar ?? ""}
+              className="font-naskh"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="singular_ar">المفرد</Label>
+            <Input
+              id="singular_ar"
+              name="singular_ar"
+              dir="rtl"
+              defaultValue={entry.singular_ar ?? ""}
+              className="font-naskh"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="past_ar">الماضي</Label>
+            <Input
+              id="past_ar"
+              name="past_ar"
+              dir="rtl"
+              defaultValue={entry.past_ar ?? ""}
+              className="font-naskh"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="present_ar">المضارع</Label>
+            <Input
+              id="present_ar"
+              name="present_ar"
+              dir="rtl"
+              defaultValue={entry.present_ar ?? ""}
+              className="font-naskh"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="masdar_ar">المصدر</Label>
+            <Input
+              id="masdar_ar"
+              name="masdar_ar"
+              dir="rtl"
+              defaultValue={entry.masdar_ar ?? ""}
+              className="font-naskh"
+            />
+          </div>
+        </fieldset>
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="status">الحالة</Label>
           <select

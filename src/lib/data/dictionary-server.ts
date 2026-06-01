@@ -2,7 +2,11 @@ import { lemmaCandidates } from "@/lib/arabic";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { lookupWord } from "./dictionary";
-import type { DictionaryEntry } from "./types";
+import {
+  MORPHOLOGY_COLUMNS,
+  pickMorphology,
+  type DictionaryEntry,
+} from "./types";
 
 type DbRow = {
   lemma_ar: string;
@@ -11,7 +15,7 @@ type DbRow = {
   antonyms_ar: unknown;
   examples_ar: unknown;
   roots: { root_ar: string } | null;
-};
+} & Record<string, unknown>;
 
 function asStringArray(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
@@ -39,6 +43,7 @@ function mapDbRow(row: DbRow): DictionaryEntry {
     synonyms_ar: asStringArray(row.synonyms_ar),
     antonyms_ar: asStringArray(row.antonyms_ar),
     examples_ar: asExamples(row.examples_ar),
+    ...pickMorphology(row),
   };
 }
 
@@ -56,7 +61,7 @@ export async function lookupEntry(
       let query = supabase
         .from("dictionary_entries")
         .select(
-          "lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,roots(root_ar)"
+          `lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,${MORPHOLOGY_COLUMNS},roots(root_ar)`
         )
         .eq("status", "published");
       

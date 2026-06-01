@@ -14,6 +14,13 @@ export type GeminiEntry = {
   synonyms: string[];
   antonyms: string[];
   examples: string[];
+  // Morfologi opsional (diisi bila relevan; "" bila tak ada).
+  word_type?: string; // نوع الكلمة: اسم/فعل/حرف
+  plural?: string; // الجمع (untuk اسم)
+  singular?: string; // المفرد (untuk اسم jamak)
+  past?: string; // الماضي (untuk فعل)
+  present?: string; // المضارع (untuk فعل)
+  masdar?: string; // المصدر (untuk فعل)
 };
 
 const SCHEMA = {
@@ -28,6 +35,12 @@ const SCHEMA = {
       synonyms: { type: Type.ARRAY, items: { type: Type.STRING } },
       antonyms: { type: Type.ARRAY, items: { type: Type.STRING } },
       examples: { type: Type.ARRAY, items: { type: Type.STRING } },
+      word_type: { type: Type.STRING },
+      plural: { type: Type.STRING },
+      singular: { type: Type.STRING },
+      past: { type: Type.STRING },
+      present: { type: Type.STRING },
+      masdar: { type: Type.STRING },
     },
     required: ["word", "lemma", "root", "meaning"],
     propertyOrdering: [
@@ -38,6 +51,12 @@ const SCHEMA = {
       "synonyms",
       "antonyms",
       "examples",
+      "word_type",
+      "plural",
+      "singular",
+      "past",
+      "present",
+      "masdar",
     ],
   },
 };
@@ -46,7 +65,11 @@ const SYSTEM =
   "أنت معجميٌّ خبيرٌ في العربية الفصحى. لكل كلمةٍ مُعطاة أعطِ: " +
   "lemma (اللفظ المجرّد)، root (الجذر مفصولاً بمسافات مثل: ك ت ب)، " +
   "meaning (تعريف موجز بالعربية)، synonyms (مرادفات)، antonyms (أضداد)، " +
-  "examples (مثالان اثنان على الأقل بالعربية لكل كلمة). " +
+  "examples (مثالان اثنان على الأقل بالعربية لكل كلمة)، " +
+  "word_type (نوع الكلمة: اسم أو فعل أو حرف). " +
+  "إنْ كانت الكلمة اسمًا فأعطِ plural (الجمع) إنْ وُجد و singular (المفرد) إنْ كانت جمعًا. " +
+  "وإنْ كانت فعلًا فأعطِ past (الماضي) و present (المضارع) و masdar (المصدر). " +
+  "اترك أيَّ حقلٍ غيرَ منطبقٍ سلسلةً فارغةً \"\". " +
   "أعِد JSON فقط بالعربية دون أي شرح إضافي.";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";

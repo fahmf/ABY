@@ -5,7 +5,7 @@ import { Eye, EyeOff, Minus, Plus, BookOpen, Book } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { stripDiacritics, tokenize } from "@/lib/arabic";
+import { stripDiacritics, tokenize, type Segment } from "@/lib/arabic";
 import { DictionaryPanel } from "./dictionary-panel";
 
 const FONT_STEPS = [
@@ -33,6 +33,27 @@ export function ReaderText({
   const containerRef = React.useRef<HTMLParagraphElement>(null);
 
   const segments = React.useMemo(() => tokenize(text), [text]);
+
+  // Peta posisi-kata → segmen, untuk event delegation (lihat openToken).
+  const wordByIndex = React.useMemo(() => {
+    const m = new Map<number, Extract<Segment, { type: "word" }>>();
+    for (const s of segments) if (s.type === "word") m.set(s.index, s);
+    return m;
+  }, [segments]);
+
+  // Satu handler di kontainer membaca `data-token` dari kata yang diklik/ditekan,
+  // alih-alih memasang handler per-<span>. Memangkas biaya hydrate pada teks
+  // ribuan kata tanpa mengubah perilaku (event tetap menggelembung ke <p>).
+  const openToken = React.useCallback(
+    (el: HTMLElement | null) => {
+      const attr = el?.getAttribute("data-token");
+      if (attr == null) return;
+      const seg = wordByIndex.get(Number(attr));
+      if (!seg) return;
+      setSelected({ surface: seg.text, lemma: dictMatches?.[seg.index] });
+    },
+    [wordByIndex, dictMatches]
+  );
 
   // Muat preferensi baca dari localStorage.
   React.useEffect(() => {
@@ -135,6 +156,16 @@ export function ReaderText({
       <p
         ref={containerRef}
         className={`font-naskh ${FONT_STEPS[fontStep]}`}
+        onClick={(e) =>
+          openToken((e.target as HTMLElement).closest<HTMLElement>("[data-token]"))
+        }
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          const el = (e.target as HTMLElement).closest<HTMLElement>("[data-token]");
+          if (!el) return;
+          e.preventDefault();
+          openToken(el);
+        }}
       >
         {segments.map((seg, i) => {
           if (seg.type === "sep") {
@@ -151,21 +182,6 @@ export function ReaderText({
               role="button"
               tabIndex={0}
               data-token={seg.index}
-              onClick={() =>
-                setSelected({
-                  surface: seg.text,
-                  lemma: dictMatches?.[seg.index],
-                })
-              }
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setSelected({
-                    surface: seg.text,
-                    lemma: dictMatches?.[seg.index],
-                  });
-                }
-              }}
               className={
                 "cursor-pointer rounded-md px-0.5 transition-colors hover:bg-accent " +
                 (isActive ? "bg-primary/15 text-primary " : "") +
@@ -173,7 +189,7 @@ export function ReaderText({
                   ? "bg-amber-300/60 dark:bg-amber-400/30 ring-2 ring-amber-400/50 "
                   : "") +
                 (isDictMatch && showDictMatches && !isActive
-                  ? "border-b border-dashed border-primary/60 pb-[2px] "
+                  ? "border-b border-dashed border-primary/60 pb-[2px] [box-decoration-break:clone] "
                   : "")
               }
             >
