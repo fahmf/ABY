@@ -1,3 +1,4 @@
+import { normalize } from "@/lib/arabic";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { lookupWord } from "./dictionary";
@@ -7,6 +8,17 @@ import type { DictionaryEntry } from "./types";
 
 export type { SearchHit };
 export type SearchMode = "text" | "root" | "dictionary";
+
+// Bentuk baris hasil select kamus dari Supabase (PostgREST mengembalikan
+// embed `roots` sebagai objek, dan kolom jsonb sebagai array yang sudah ter-parse).
+type DictionaryRow = {
+  lemma_ar: string;
+  meaning_ar: string | null;
+  synonyms_ar: string[] | null;
+  antonyms_ar: string[] | null;
+  examples_ar: (string | { text?: string })[] | null;
+  roots: { root_ar: string } | null;
+};
 
 /** Pencarian terpadu: mode "text" (substring) atau "root" (kata se-akar). */
 export async function search(
@@ -74,21 +86,30 @@ export async function searchDictionary(query: string): Promise<DictionaryEntry[]
     try {
       const supabase = await createClient();
       const pattern = `%${q}%`;
+      // lemma_norm dibandingkan dengan query yang SUDAH dinormalkan agar input
+      // berharakat / varian alif-hamza tetap cocok. Ketiga kolom (lemma_ar,
+      // meaning_ar, lemma_norm) memakai indeks GIN trigram (migrasi 0006).
+      const normPattern = `%${normalize(q)}%`;
       const { data } = await supabase
         .from("dictionary_entries")
         .select("lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,roots(root_ar)")
         .eq("status", "published")
-        .or(`lemma_ar.ilike.${pattern},meaning_ar.ilike.${pattern},lemma_norm.ilike.${pattern}`)
+        .or(
+          `lemma_ar.ilike.${pattern},meaning_ar.ilike.${pattern},lemma_norm.ilike.${normPattern}`
+        )
         .limit(20);
 
       if (data) {
-        return (data as any[]).map(row => ({
+        const rows = data as unknown as DictionaryRow[];
+        return rows.map((row) => ({
           lemma_ar: row.lemma_ar,
           root_ar: row.roots?.root_ar ?? "",
           meaning_ar: row.meaning_ar ?? "",
-          synonyms_ar: row.synonyms_ar || [],
-          antonyms_ar: row.antonyms_ar || [],
-          examples_ar: (row.examples_ar || []).map((x: any) => typeof x === "string" ? x : x.text || "").filter(Boolean),
+          synonyms_ar: row.synonyms_ar ?? [],
+          antonyms_ar: row.antonyms_ar ?? [],
+          examples_ar: (row.examples_ar ?? [])
+            .map((x) => (typeof x === "string" ? x : x?.text ?? ""))
+            .filter(Boolean),
         }));
       }
     } catch {
