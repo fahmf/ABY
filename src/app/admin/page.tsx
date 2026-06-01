@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IngestButton } from "@/components/admin/ingest-button";
+import { SubmitIconButton } from "@/components/admin/submit-icon-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireStaff } from "@/lib/auth";
@@ -135,9 +136,7 @@ export default async function AdminDashboard({
                     l.status === "published" ? "draft" : "published"
                   )}
                 >
-                  <Button
-                    variant="ghost"
-                    size="icon"
+                  <SubmitIconButton
                     title={l.status === "published" ? "إلغاء النشر" : "نشر"}
                   >
                     {l.status === "published" ? (
@@ -145,7 +144,7 @@ export default async function AdminDashboard({
                     ) : (
                       <Eye className="size-4" />
                     )}
-                  </Button>
+                  </SubmitIconButton>
                 </form>
                 <form action={ingestLessonAction.bind(null, l.id)}>
                   <IngestButton disabled={!geminiOK} />
@@ -156,14 +155,9 @@ export default async function AdminDashboard({
                   </Link>
                 </Button>
                 <form action={deleteLesson.bind(null, l.id)}>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    title="حذف"
-                    className="text-destructive"
-                  >
+                  <SubmitIconButton title="حذف" className="text-destructive">
                     <Trash2 className="size-4" />
-                  </Button>
+                  </SubmitIconButton>
                 </form>
               </div>
             </div>
