@@ -27,7 +27,12 @@ export function normalize(text: string): string {
 }
 
 // Klitik depan & akhiran umum untuk heuristik pencocokan bentuk kata → lemma.
-const PREFIXES = ["وال", "فال", "بال", "كال", "لل", "ال", "و", "ف", "ب", "ك", "ل"];
+const PREFIXES = [
+  "وال", "فال", "بال", "كال", "لل", "ال", 
+  "وس", "فس", "س", 
+  "و", "ف", "ب", "ك", "ل",
+  "أ", "ن", "ي", "ت"
+];
 const SUFFIXES = ["تها", "هما", "كما", "هم", "كم", "نا", "ها", "ه", "ك", "ي", "ات", "ون", "ين", "ة"];
 
 /**

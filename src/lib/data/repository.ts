@@ -1,5 +1,6 @@
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { tokenize, lemmaCandidates } from "@/lib/arabic";
 import type { Lesson, Unit, Volume } from "./types";
 import { LESSONS, UNITS, VOLUMES } from "./seed";
 
@@ -163,7 +164,7 @@ export async function getDictionaryMatches(lessonSlug: string): Promise<Record<n
     
     const { data: lesson } = await supabase
       .from("lessons")
-      .select("id")
+      .select("id, body_ar")
       .eq("slug", lessonSlug)
       .maybeSingle();
       
@@ -175,23 +176,64 @@ export async function getDictionaryMatches(lessonSlug: string): Promise<Record<n
       .eq("lesson_id", lesson.id)
       .not("lemma_ar", "is", null);
       
-    if (!tokens || tokens.length === 0) return matches;
-    
-    const uniqueLemmas = [...new Set(tokens.map((t) => t.lemma_ar as string))];
-    
-    const { data: dictEntries } = await supabase
-      .from("dictionary_entries")
-      .select("lemma_ar")
-      .eq("status", "published")
-      .in("lemma_ar", uniqueLemmas);
+    if (tokens && tokens.length > 0) {
+      const uniqueLemmas = [...new Set(tokens.map((t) => t.lemma_ar as string))];
       
-    if (!dictEntries) return matches;
+      const { data: dictEntries } = await supabase
+        .from("dictionary_entries")
+        .select("lemma_ar")
+        .eq("status", "published")
+        .in("lemma_ar", uniqueLemmas);
+        
+      if (!dictEntries) return matches;
+      
+      const validLemmas = new Set(dictEntries.map((e) => e.lemma_ar));
+      
+      for (const t of tokens as { position: number; lemma_ar: string }[]) {
+        if (validLemmas.has(t.lemma_ar)) {
+          matches[t.position] = t.lemma_ar;
+        }
+      }
+      return matches;
+    }
     
-    const validLemmas = new Set(dictEntries.map((e) => e.lemma_ar));
+    // FALLBACK: Teks belum di-ingest (tabel tokens kosong).
+    // Gunakan heuristik pencocokan agar kata tetap di-highlight (Opsi D).
+    const segments = tokenize(lesson.body_ar);
+    const uniqueWords = [...new Set(segments.filter(s => s.type === "word").map(s => s.text))];
+    const candidateMap = new Map<string, string[]>();
+    const allCandidates = new Set<string>();
     
-    for (const t of tokens as { position: number; lemma_ar: string }[]) {
-      if (validLemmas.has(t.lemma_ar)) {
-        matches[t.position] = t.lemma_ar;
+    for (const word of uniqueWords) {
+      const cands = lemmaCandidates(word);
+      candidateMap.set(word, cands);
+      for (const c of cands) allCandidates.add(c);
+    }
+    
+    const candsArray = [...allCandidates];
+    const validNormToAr = new Map<string, string>();
+    
+    // Batch requests untuk menghindari batas panjang URL PostgREST
+    for (let i = 0; i < candsArray.length; i += 100) {
+      const chunk = candsArray.slice(i, i + 100);
+      const { data: entries } = await supabase
+        .from("dictionary_entries")
+        .select("lemma_norm, lemma_ar")
+        .eq("status", "published")
+        .in("lemma_norm", chunk);
+        
+      if (entries) {
+        for (const e of entries) validNormToAr.set(e.lemma_norm, e.lemma_ar);
+      }
+    }
+    
+    for (const seg of segments) {
+      if (seg.type === "word") {
+        const cands = candidateMap.get(seg.text) || [];
+        const validCand = cands.find(c => validNormToAr.has(c));
+        if (validCand) {
+          matches[seg.index] = validNormToAr.get(validCand) as string;
+        }
       }
     }
   } catch (err) {
