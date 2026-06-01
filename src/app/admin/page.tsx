@@ -6,13 +6,13 @@ import {
   Languages,
   Pencil,
   Plus,
-  Sparkles,
   Trash2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { IngestButton } from "@/components/admin/ingest-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireStaff } from "@/lib/auth";
@@ -28,15 +28,21 @@ import {
 
 export const dynamic = "force-dynamic";
 // Pipeline ingest (Gemini) bisa berjalan lama; beri tenggang waktu lebih besar.
-// Catatan: Vercel Hobby maksimum 60s; Pro hingga 300s.
-export const maxDuration = 60;
+// Catatan: Vercel Hobby maksimum 60s; Pro hingga 300s. Pipeline kini resumable —
+// bila tetap terpotong, klik "معالجة" lagi akan melanjutkan dari batch terakhir.
+export const maxDuration = 300;
 
 const field =
   "border-input bg-background h-9 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]";
 
-export default async function AdminDashboard() {
+export default async function AdminDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ ingest?: string }>;
+}) {
   await requireStaff();
-  const [volumes, units, lessons] = await Promise.all([
+  const [{ ingest }, volumes, units, lessons] = await Promise.all([
+    searchParams,
     listVolumes(),
     listUnits(),
     listLessons(),
@@ -70,6 +76,29 @@ export default async function AdminDashboard() {
             <span className="text-foreground">GEMINI_API_KEY</span> غير مضبوط —
             المعالجة (استخراج الجذر وتوليد المعجم) معطّلة حتى تضبطه.
           </p>
+        </div>
+      )}
+
+      {ingest === "busy" && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
+          <p className="text-muted-foreground">
+            خادم الذكاء الاصطناعي مزدحم حاليًّا (503). تمّ حفظ التقدّم — اضغط
+            «معالجة» مرّةً أخرى لاحقًا لإكمال ما تبقّى من حيث توقّف.
+          </p>
+        </div>
+      )}
+      {ingest === "failed" && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-red-500" />
+          <p className="text-muted-foreground">
+            تعذّرت المعالجة. تحقّق من السجلّات وحاول مجدّدًا.
+          </p>
+        </div>
+      )}
+      {ingest === "ok" && (
+        <div className="mb-6 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm text-muted-foreground">
+          تمّت المعالجة بنجاح.
         </div>
       )}
 
@@ -119,14 +148,7 @@ export default async function AdminDashboard() {
                   </Button>
                 </form>
                 <form action={ingestLessonAction.bind(null, l.id)}>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    title="معالجة (الجذر + المعجم)"
-                    disabled={!geminiOK}
-                  >
-                    <Sparkles className="size-4" />
-                  </Button>
+                  <IngestButton disabled={!geminiOK} />
                 </form>
                 <Button asChild variant="ghost" size="icon" title="تعديل">
                   <Link href={`/admin/lessons/${l.id}`}>
