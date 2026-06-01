@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { lookupWord } from "./dictionary";
 import { buildHit, searchByRoot, searchSeed, type SearchHit } from "./search-core";
 import { LESSONS, UNITS } from "./seed";
-import type { DictionaryEntry } from "./types";
+import { MORPHOLOGY_COLUMNS, pickMorphology, type DictionaryEntry } from "./types";
 
 export type { SearchHit };
 export type SearchMode = "text" | "root" | "dictionary";
@@ -18,7 +18,7 @@ type DictionaryRow = {
   antonyms_ar: string[] | null;
   examples_ar: (string | { text?: string })[] | null;
   roots: { root_ar: string } | null;
-};
+} & Record<string, unknown>;
 
 /** Pencarian terpadu: mode "text" (substring) atau "root" (kata se-akar). */
 export async function search(
@@ -92,7 +92,9 @@ export async function searchDictionary(query: string): Promise<DictionaryEntry[]
       const normPattern = `%${normalize(q)}%`;
       const { data } = await supabase
         .from("dictionary_entries")
-        .select("lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,roots(root_ar)")
+        .select(
+          `lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,${MORPHOLOGY_COLUMNS},roots(root_ar)`
+        )
         .eq("status", "published")
         .or(
           `lemma_ar.ilike.${pattern},meaning_ar.ilike.${pattern},lemma_norm.ilike.${normPattern}`
@@ -110,6 +112,7 @@ export async function searchDictionary(query: string): Promise<DictionaryEntry[]
           examples_ar: (row.examples_ar ?? [])
             .map((x) => (typeof x === "string" ? x : x?.text ?? ""))
             .filter(Boolean),
+          ...pickMorphology(row),
         }));
       }
     } catch {

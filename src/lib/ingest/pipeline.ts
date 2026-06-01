@@ -121,6 +121,10 @@ export async function ingestLesson(lessonId: string): Promise<IngestResult> {
     }
 
     // 2) Upsert dictionary_entries (draft) tanpa menimpa entri terverifikasi.
+    const clean = (v?: string) => {
+      const t = (v ?? "").trim();
+      return t ? t : null;
+    };
     const dictRows = entries.map((e) => ({
       lemma_ar: e.lemma.trim(),
       lemma_norm: normalize(e.lemma),
@@ -129,6 +133,12 @@ export async function ingestLesson(lessonId: string): Promise<IngestResult> {
       synonyms_ar: e.synonyms ?? [],
       antonyms_ar: e.antonyms ?? [],
       examples_ar: (e.examples ?? []).map((text) => ({ text })),
+      word_type: clean(e.word_type),
+      plural_ar: clean(e.plural),
+      singular_ar: clean(e.singular),
+      past_ar: clean(e.past),
+      present_ar: clean(e.present),
+      masdar_ar: clean(e.masdar),
       status: "draft" as const,
       generated_by: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
     }));

@@ -134,6 +134,9 @@ export async function saveDictionaryEntry(form: FormData) {
     .filter(Boolean)
     .map((text) => ({ text }));
 
+  // Field morfologi opsional: simpan NULL bila dikosongkan.
+  const orNull = (key: string) => str(form, key) || null;
+
   const publish = str(form, "status") === "published";
   await supabase
     .from("dictionary_entries")
@@ -142,6 +145,12 @@ export async function saveDictionaryEntry(form: FormData) {
       synonyms_ar: csv(form, "synonyms_ar"),
       antonyms_ar: csv(form, "antonyms_ar"),
       examples_ar: examples,
+      word_type: orNull("word_type"),
+      plural_ar: orNull("plural_ar"),
+      singular_ar: orNull("singular_ar"),
+      past_ar: orNull("past_ar"),
+      present_ar: orNull("present_ar"),
+      masdar_ar: orNull("masdar_ar"),
       status: publish ? "published" : "draft",
       reviewed_by: publish ? profile.id : null,
       reviewed_at: publish ? new Date().toISOString() : null,
