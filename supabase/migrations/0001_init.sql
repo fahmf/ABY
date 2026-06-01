@@ -113,19 +113,25 @@ alter table dictionary_entries enable row level security;
 alter table tokens enable row level security;
 
 -- profiles: hanya pemilik/staff yang boleh lihat dirinya
+drop policy if exists "profiles self read" on profiles;
 create policy "profiles self read" on profiles
   for select using (id = auth.uid());
 
 -- Struktur (volumes/units) boleh dibaca publik
+drop policy if exists "volumes public read" on volumes;
 create policy "volumes public read" on volumes for select using (true);
+drop policy if exists "units public read" on units;
 create policy "units public read" on units for select using (true);
+drop policy if exists "roots public read" on roots;
 create policy "roots public read" on roots for select using (true);
 
 -- Lessons: publik hanya yang published; staff semua
+drop policy if exists "lessons public read" on lessons;
 create policy "lessons public read" on lessons
   for select using (status = 'published' or is_staff());
 
 -- Tokens: ikut status lesson induknya
+drop policy if exists "tokens public read" on tokens;
 create policy "tokens public read" on tokens
   for select using (
     is_staff() or exists (
@@ -135,6 +141,7 @@ create policy "tokens public read" on tokens
   );
 
 -- Dictionary: publik hanya published; staff semua
+drop policy if exists "dictionary public read" on dictionary_entries;
 create policy "dictionary public read" on dictionary_entries
   for select using (status = 'published' or is_staff());
 
@@ -145,6 +152,7 @@ begin
   foreach t in array array[
     'volumes','units','lessons','roots','dictionary_entries','tokens'
   ] loop
+    execute format($f$drop policy if exists "%1$s staff write" on %1$s;$f$, t);
     execute format($f$
       create policy "%1$s staff write" on %1$s
         for all using (is_staff()) with check (is_staff());
