@@ -161,6 +161,13 @@ export async function setEntryStatus(
   revalidatePath("/admin/dictionary");
 }
 
+export async function deleteEntry(id: string) {
+  await requireStaff();
+  const supabase = await createClient();
+  await supabase.from("dictionary_entries").delete().eq("id", id);
+  revalidatePath("/admin/dictionary");
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();

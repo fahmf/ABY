@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, Eye, EyeOff, Hash, Pencil } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Hash, Pencil, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireStaff } from "@/lib/auth";
 import { listDictionaryEntries } from "@/lib/data/admin";
-import { setEntryStatus } from "../actions";
+import { setEntryStatus, deleteEntry } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +92,11 @@ function Section({
                   <Pencil className="size-4" />
                 </Link>
               </Button>
+              <form action={deleteEntry.bind(null, e.id)}>
+                <Button variant="ghost" size="icon" title="حذف" className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950">
+                  <Trash2 className="size-4" />
+                </Button>
+              </form>
             </div>
           </div>
         ))}
