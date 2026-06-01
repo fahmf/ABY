@@ -14,14 +14,20 @@
  *   bun run --env-file=.env.local scripts/ingest-local.ts --sql out.sql   # cetak SQL, tak menulis DB
  *   bun run --env-file=.env.local scripts/ingest-local.ts --tokens        # ikut isi tabel tokens
  *
- * Opsi: --lesson <slug|id>  --status draft|published  --delay <ms>  --batch <n>
- *       --sql [file]  --tokens
+ * Hemat-RPM (tier gratis): hitung jeda aman otomatis & bergiliran antar model.
+ *   bun run --env-file=.env.local scripts/ingest-local.ts --rpm 5 --batch 100
+ *   (set GEMINI_FALLBACK_MODEL=gemini-2.5-flash agar throughput dobel)
+ *
+ * Opsi: --lesson <slug|id>  --status draft|published  --batch <n>  --tokens
+ *       --rpm <n>   jeda otomatis = 60000/(n × jumlah_model) (utamakan ini)
+ *       --delay <ms>  jeda manual antar request (dipakai bila --rpm kosong)
+ *       --sql [file]  cetak SQL alih-alih menulis DB
  */
 import { writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
 import { normalize, tokenize } from "../src/lib/arabic";
-import { generateEntries } from "../src/lib/ingest/gemini-core";
+import { generateEntries, geminiModels } from "../src/lib/ingest/gemini-core";
 import { chunk, rootKey, uniqueWords } from "../src/lib/ingest/text";
 
 // ---------- argumen CLI ----------
@@ -36,9 +42,32 @@ const LESSON = opt("lesson"); // slug atau id; kosong = semua
 const STATUS = (opt("status", "published") as "draft" | "published");
 const DELAY = Number(opt("delay", "1500")); // jeda antar batch (ms)
 const BATCH = Number(opt("batch", "40"));
+const RPM = opt("rpm"); // mis. "5" → hitung sendiri jeda aman per bucket
 const WITH_TOKENS = flag("tokens");
 const SQL_MODE = flag("sql");
 const SQL_FILE = opt("sql", "ingest-local.sql");
+
+// ---------- pengatur laju (rate limiter) global + round-robin model ----------
+// Tier gratis dibatasi RPM per model. Dengan round-robin antar M model, laju
+// request global boleh M× lebih tinggi sambil tiap model tetap ≤ RPM.
+const MODELS = geminiModels(); // [utama, ...fallback]
+const MIN_INTERVAL = RPM
+  ? Math.ceil((60000 / (Number(RPM) * MODELS.length)) * 1.1) // +10% margin
+  : DELAY;
+let lastCallAt = 0;
+let reqIndex = 0;
+
+/** Tunggu giliran (pacing global), lalu panggil Gemini dengan urutan model
+ *  yang dirotasi agar beban tersebar merata antar bucket. */
+async function pacedGenerate(batch: string[]) {
+  const wait = lastCallAt + MIN_INTERVAL - Date.now();
+  if (wait > 0) await sleep(wait);
+  lastCallAt = Date.now();
+  const rot = reqIndex % MODELS.length;
+  const models = [...MODELS.slice(rot), ...MODELS.slice(0, rot)];
+  reqIndex++;
+  return generateEntries(batch, { models });
+}
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -87,7 +116,7 @@ async function processLesson(lesson: LessonRow) {
 
   for (let i = 0; i < batches.length; i++) {
     process.stdout.write(`  • batch ${i + 1}/${batches.length} … `);
-    const entries = await generateEntries(batches[i]); // retry+fallback bawaan
+    const entries = await pacedGenerate(batches[i]); // paced + round-robin + retry
     for (const e of entries) results.set(normalize(e.word), e);
 
     if (SQL_MODE) {
@@ -96,7 +125,6 @@ async function processLesson(lesson: LessonRow) {
       await writeBatch(entries);
     }
     console.log(`${entries.length} entri`);
-    if (i < batches.length - 1 && DELAY > 0) await sleep(DELAY); // jeda santai
   }
 
   if (WITH_TOKENS) await writeTokens(lesson, results);
@@ -188,7 +216,11 @@ async function main() {
     console.error(LESSON ? `❌ Lesson "${LESSON}" tidak ditemukan.` : "❌ Tidak ada lesson.");
     process.exit(1);
   }
-  console.log(`Mode: ${SQL_MODE ? "CETAK SQL" : "TULIS DB"} · status=${STATUS} · batch=${BATCH} · delay=${DELAY}ms · tokens=${WITH_TOKENS}`);
+  const laju = RPM
+    ? `rpm=${RPM}/model × ${MODELS.length} model → jeda ${MIN_INTERVAL}ms (~${Math.round(60000 / MIN_INTERVAL)} req/mnt)`
+    : `delay=${MIN_INTERVAL}ms`;
+  console.log(`Mode: ${SQL_MODE ? "CETAK SQL" : "TULIS DB"} · status=${STATUS} · batch=${BATCH} · ${laju} · tokens=${WITH_TOKENS}`);
+  console.log(`Model: ${MODELS.join(" ↻ ")}`);
   for (const l of lessons) await processLesson(l);
 
   if (SQL_MODE) {

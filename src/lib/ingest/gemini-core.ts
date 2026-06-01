@@ -76,15 +76,23 @@ function modelChain(): string[] {
   return [...new Set([primary, ...fallbacks])];
 }
 
-/** Panggil Gemini untuk sekumpulan kata (satu batch). */
+/** Daftar model efektif (utama + fallback). Berguna untuk round-robin di CLI. */
+export function geminiModels(): string[] {
+  return modelChain();
+}
+
+/** Panggil Gemini untuk sekumpulan kata (satu batch).
+ *  opts.models: paksa urutan model tertentu (mis. untuk round-robin antar
+ *  bucket RPM); bila kosong, pakai rantai default dari env. */
 export async function generateEntries(
-  words: string[]
+  words: string[],
+  opts?: { models?: string[] }
 ): Promise<GeminiEntry[]> {
   if (!isGeminiConfigured()) {
     throw new Error("GEMINI_API_KEY belum dikonfigurasi.");
   }
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-  const models = modelChain();
+  const models = opts?.models?.length ? opts.models : modelChain();
   const maxAttempts = 4; // per model
 
   let lastErr: unknown;
