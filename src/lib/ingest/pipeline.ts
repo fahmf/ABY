@@ -129,6 +129,12 @@ export async function ingestLesson(lessonId: string): Promise<IngestResult> {
       synonyms_ar: e.synonyms ?? [],
       antonyms_ar: e.antonyms ?? [],
       examples_ar: (e.examples ?? []).map((text) => ({ text })),
+      word_type: e.word_type ?? null,
+      plural_ar: e.plural_ar ?? null,
+      singular_ar: e.singular_ar ?? null,
+      past_ar: e.past_ar ?? null,
+      present_ar: e.present_ar ?? null,
+      masdar_ar: e.masdar_ar ?? null,
       status: "draft" as const,
       generated_by: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
     }));

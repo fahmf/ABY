@@ -14,6 +14,12 @@ export type GeminiEntry = {
   synonyms: string[];
   antonyms: string[];
   examples: string[];
+  word_type?: string;
+  plural_ar?: string;
+  singular_ar?: string;
+  past_ar?: string;
+  present_ar?: string;
+  masdar_ar?: string;
 };
 
 const SCHEMA = {
@@ -28,6 +34,12 @@ const SCHEMA = {
       synonyms: { type: Type.ARRAY, items: { type: Type.STRING } },
       antonyms: { type: Type.ARRAY, items: { type: Type.STRING } },
       examples: { type: Type.ARRAY, items: { type: Type.STRING } },
+      word_type: { type: Type.STRING },
+      plural_ar: { type: Type.STRING },
+      singular_ar: { type: Type.STRING },
+      past_ar: { type: Type.STRING },
+      present_ar: { type: Type.STRING },
+      masdar_ar: { type: Type.STRING },
     },
     required: ["word", "lemma", "root", "meaning"],
     propertyOrdering: [
@@ -35,6 +47,12 @@ const SCHEMA = {
       "lemma",
       "root",
       "meaning",
+      "word_type",
+      "plural_ar",
+      "singular_ar",
+      "past_ar",
+      "present_ar",
+      "masdar_ar",
       "synonyms",
       "antonyms",
       "examples",
@@ -47,7 +65,10 @@ const SYSTEM =
   "lemma (اللفظ المجرّد)، root (الجذر مفصولاً بمسافات مثل: ك ت ب)، " +
   "meaning (تعريف موجز بالعربية)، synonyms (مرادفات)، antonyms (أضداد)، " +
   "examples (مثالان اثنان على الأقل بالعربية لكل كلمة). " +
-  "أعِد JSON فقط بالعربية دون أي شرح إضافي.";
+  "بالإضافة إلى ذلك، قدّم المعلومات الصرفية (إن وُجدت): " +
+  "word_type (نوع الكلمة: اسم، فعل، حرف)، plural_ar (الجمع للأسماء)، singular_ar (المفرد للجموع)، " +
+  "past_ar (الماضي للأفعال)، present_ar (المضارع للأفعال)، masdar_ar (المصدر). " +
+  "أعِد JSON فقط بالعربية دون أي شرح إضافي. الحقول الصرفية اختيارية وتُترك فارغة إذا لم تنطبق.";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
 
