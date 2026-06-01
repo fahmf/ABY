@@ -4,7 +4,6 @@ import { ArrowLeft, Search, Hash } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { search, searchDictionary, type SearchMode } from "@/lib/data/search";
-import type { DictionaryEntry } from "@/lib/data/types";
 
 export const dynamic = "force-dynamic";
 

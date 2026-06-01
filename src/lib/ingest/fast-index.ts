@@ -64,7 +64,16 @@ export async function fastIndexLesson(lessonId: string): Promise<FastIndexResult
   }
 
   // 5. Bangun array tokens untuk di-insert
-  const tokensToInsert: any[] = [];
+  type TokenInsert = {
+    lesson_id: string;
+    position: number;
+    surface_ar: string;
+    char_start: number;
+    char_end: number;
+    lemma_ar: string | null;
+    root_id: string | null;
+  };
+  const tokensToInsert: TokenInsert[] = [];
   
   for (const seg of words) {
     const cands = candidateMap.get(seg.text) || [];

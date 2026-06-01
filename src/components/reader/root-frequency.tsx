@@ -23,7 +23,7 @@ export function RootFrequencyButton({ surface }: { surface: string }) {
   React.useEffect(() => {
     if (!open) return;
     let active = true;
-    setLoading(true);
+    const t = setTimeout(() => setLoading(true), 0);
     fetch(`/api/frequency?q=${encodeURIComponent(surface)}`)
       .then((r) => r.json())
       .then((d) => active && setData(d.frequency ?? null))

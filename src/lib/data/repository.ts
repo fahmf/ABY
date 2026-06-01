@@ -1,6 +1,5 @@
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { tokenize, lemmaCandidates } from "@/lib/arabic";
 import type { Lesson, Unit, Volume } from "./types";
 import { LESSONS, UNITS, VOLUMES } from "./seed";
 

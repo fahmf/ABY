@@ -39,9 +39,12 @@ export function ReaderText({
     const h = localStorage.getItem("aby:harakat");
     const d = localStorage.getItem("aby:showDictMatches");
     const f = localStorage.getItem("aby:fontStep");
-    if (h !== null) setShowHarakat(h === "1");
-    if (d !== null) setShowDictMatches(d === "1");
-    if (f !== null) setFontStep(Number(f));
+    const t = setTimeout(() => {
+      if (h !== null) setShowHarakat(h === "1");
+      if (d !== null) setShowDictMatches(d === "1");
+      if (f !== null) setFontStep(Number(f));
+    }, 0);
+    return () => clearTimeout(t);
   }, []);
   React.useEffect(() => {
     localStorage.setItem("aby:harakat", showHarakat ? "1" : "0");

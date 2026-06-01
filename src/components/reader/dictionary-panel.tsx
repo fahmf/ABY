@@ -24,7 +24,7 @@ export function DictionaryPanel({
 
   React.useEffect(() => {
     let active = true;
-    setLoading(true);
+    const t = setTimeout(() => setLoading(true), 0);
     let url = `/api/dictionary?q=${encodeURIComponent(surface)}`;
     if (lemma) url += `&lemma=${encodeURIComponent(lemma)}`;
     

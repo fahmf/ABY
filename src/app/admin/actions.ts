@@ -101,8 +101,6 @@ export async function fastIndexAction(id: string) {
   try {
     await fastIndexLesson(id);
   } catch (err) {
-    const status = (err as { status?: number; code?: number })?.status ??
-      (err as { status?: number; code?: number })?.code;
     const reason = "failed";
     redirect(`/admin?ingest=${reason}`);
   }

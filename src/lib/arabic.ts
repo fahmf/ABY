@@ -74,7 +74,7 @@ export function lemmaCandidates(surface: string): string[] {
   }
 
   generate(base);
-  return [...out];
+  return [...out].sort((a, b) => b.length - a.length);
 }
 
 export type Segment =

@@ -82,12 +82,14 @@ export async function searchDictionary(query: string): Promise<DictionaryEntry[]
         .limit(20);
 
       if (data) {
-        return (data as any[]).map(row => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return data.map((row: any) => ({
           lemma_ar: row.lemma_ar,
-          root_ar: row.roots?.root_ar ?? "",
+          root_ar: Array.isArray(row.roots) ? (row.roots[0]?.root_ar ?? "") : (row.roots?.root_ar ?? ""),
           meaning_ar: row.meaning_ar ?? "",
           synonyms_ar: row.synonyms_ar || [],
           antonyms_ar: row.antonyms_ar || [],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           examples_ar: (row.examples_ar || []).map((x: any) => typeof x === "string" ? x : x.text || "").filter(Boolean),
         }));
       }

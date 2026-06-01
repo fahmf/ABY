@@ -74,6 +74,7 @@ create table if not exists roots (
 create table if not exists dictionary_entries (
   id uuid primary key default gen_random_uuid(),
   lemma_ar text not null unique,
+  lemma_norm text not null default '',
   root_id uuid references roots (id) on delete set null,
   meaning_ar text,
   synonyms_ar jsonb not null default '[]'::jsonb,
@@ -159,3 +160,48 @@ begin
     $f$, t);
   end loop;
 end $$;
+
+-- Trigger to automatically create a profile for new users
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, role)
+  values (new.id, new.email, 'editor');
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- Trigger to automatically normalize lemma_ar into lemma_norm on insert/update
+create or replace function public.normalize_arabic(text_val text) returns text as $$
+declare
+  res text;
+begin
+  -- Strip diacritics
+  res := regexp_replace(text_val, '[ؐ-ًؚ-ٰٟۖ-ۜ۟-۪ۨ-ۭ]', '', 'g');
+  res := regexp_replace(res, 'ـ', '', 'g');
+  -- Normalize letters
+  res := regexp_replace(res, '[آأإٱ]', 'ا', 'g');
+  res := regexp_replace(res, 'ى', 'ي', 'g');
+  res := regexp_replace(res, 'ة', 'ه', 'g');
+  res := regexp_replace(res, '[ؤئ]', 'ء', 'g');
+  return btrim(res);
+end;
+$$ language plpgsql immutable;
+
+create or replace function public.set_lemma_norm() returns trigger as $$
+begin
+  -- Auto-generate lemma_norm from lemma_ar
+  new.lemma_norm := public.normalize_arabic(new.lemma_ar);
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_set_lemma_norm on dictionary_entries;
+create trigger trg_set_lemma_norm
+  before insert or update of lemma_ar on dictionary_entries
+  for each row execute procedure public.set_lemma_norm();
