@@ -197,45 +197,6 @@ export async function getDictionaryMatches(lessonSlug: string): Promise<Record<n
       return matches;
     }
     
-    // FALLBACK: Teks belum di-ingest (tabel tokens kosong).
-    // Gunakan heuristik pencocokan agar kata tetap di-highlight (Opsi D).
-    const segments = tokenize(lesson.body_ar);
-    const uniqueWords = [...new Set(segments.filter(s => s.type === "word").map(s => s.text))];
-    const candidateMap = new Map<string, string[]>();
-    const allCandidates = new Set<string>();
-    
-    for (const word of uniqueWords) {
-      const cands = lemmaCandidates(word);
-      candidateMap.set(word, cands);
-      for (const c of cands) allCandidates.add(c);
-    }
-    
-    const candsArray = [...allCandidates];
-    const validNormToAr = new Map<string, string>();
-    
-    // Batch requests untuk menghindari batas panjang URL PostgREST
-    for (let i = 0; i < candsArray.length; i += 100) {
-      const chunk = candsArray.slice(i, i + 100);
-      const { data: entries } = await supabase
-        .from("dictionary_entries")
-        .select("lemma_norm, lemma_ar")
-        .eq("status", "published")
-        .in("lemma_norm", chunk);
-        
-      if (entries) {
-        for (const e of entries) validNormToAr.set(e.lemma_norm, e.lemma_ar);
-      }
-    }
-    
-    for (const seg of segments) {
-      if (seg.type === "word") {
-        const cands = candidateMap.get(seg.text) || [];
-        const validCand = cands.find(c => validNormToAr.has(c));
-        if (validCand) {
-          matches[seg.index] = validNormToAr.get(validCand) as string;
-        }
-      }
-    }
   } catch (err) {
     console.error(err);
   }

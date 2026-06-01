@@ -24,8 +24,10 @@ import {
   createVolume,
   deleteLesson,
   ingestLessonAction,
+  fastIndexAction,
   setLessonStatus,
 } from "./actions";
+import { FastIndexButton } from "@/components/admin/fast-index-button";
 
 export const dynamic = "force-dynamic";
 // Pipeline ingest (Gemini) bisa berjalan lama; beri tenggang waktu lebih besar.
@@ -145,6 +147,9 @@ export default async function AdminDashboard({
                       <Eye className="size-4" />
                     )}
                   </SubmitIconButton>
+                </form>
+                <form action={fastIndexAction.bind(null, l.id)}>
+                  <FastIndexButton />
                 </form>
                 <form action={ingestLessonAction.bind(null, l.id)}>
                   <IngestButton disabled={!geminiOK} />

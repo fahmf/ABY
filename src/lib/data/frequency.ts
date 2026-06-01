@@ -69,64 +69,14 @@ async function fromSupabase(surface: string): Promise<RootFrequency | null> {
   };
   const rows = (toks as unknown as Row[]) ?? [];
 
-  if (rows.length > 0) {
-    const occurrences: Occurrence[] = rows.map((t) => ({
-      lessonSlug: t.lessons.slug,
-      lessonTitle: t.lessons.title_ar,
-      unitTitle: t.lessons.units.title_ar,
-      volumeNumber: t.lessons.units.volumes.number,
-      position: t.position,
-      snippet: makeSnippet(t.lessons.body_ar, t.char_start, t.char_end),
-    }));
-
-    return {
-      root_ar: row.roots?.root_ar ?? "",
-      total: occurrences.length,
-      occurrences,
-    };
-  }
-
-  // FALLBACK: Teks belum di-ingest (tabel tokens kosong), jadi kita periksa manual semua teks.
-  // Ini cocok untuk input manual.
-  const { data: allLessons } = await supabase
-    .from("lessons")
-    .select("slug,title_ar,body_ar,units!inner(title_ar,volumes!inner(number))")
-    .eq("status", "published");
-
-  if (!allLessons) {
-    return { root_ar: row.roots?.root_ar ?? "", total: 0, occurrences: [] };
-  }
-
-  // Ambil semua lemma_norm yang memiliki root_id yang sama
-  const { data: rootEntries } = await supabase
-    .from("dictionary_entries")
-    .select("lemma_norm")
-    .eq("root_id", row.root_id)
-    .eq("status", "published");
-
-  const validNorms = new Set((rootEntries || []).map((e) => e.lemma_norm));
-  const occurrences: Occurrence[] = [];
-
-  const { tokenize } = await import("@/lib/arabic");
-
-  for (const l of allLessons as any[]) {
-    const segments = tokenize(l.body_ar);
-    for (const seg of segments) {
-      if (seg.type === "word") {
-        const cands = lemmaCandidates(seg.text);
-        if (cands.some((c) => validNorms.has(c))) {
-          occurrences.push({
-            lessonSlug: l.slug,
-            lessonTitle: l.title_ar,
-            unitTitle: l.units.title_ar,
-            volumeNumber: l.units.volumes.number,
-            position: seg.index,
-            snippet: makeSnippet(l.body_ar, seg.start, seg.end),
-          });
-        }
-      }
-    }
-  }
+  const occurrences: Occurrence[] = rows.map((t) => ({
+    lessonSlug: t.lessons.slug,
+    lessonTitle: t.lessons.title_ar,
+    unitTitle: t.lessons.units.title_ar,
+    volumeNumber: t.lessons.units.volumes.number,
+    position: t.position,
+    snippet: makeSnippet(t.lessons.body_ar, t.char_start, t.char_end),
+  }));
 
   return {
     root_ar: row.roots?.root_ar ?? "",

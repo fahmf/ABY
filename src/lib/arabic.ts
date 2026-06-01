@@ -33,30 +33,47 @@ const PREFIXES = [
   "و", "ف", "ب", "ك", "ل",
   "أ", "ن", "ي", "ت"
 ];
-const SUFFIXES = ["تها", "هما", "كما", "هم", "كم", "نا", "ها", "ه", "ك", "ي", "ات", "ون", "ين", "ة"];
+const SUFFIXES = [
+  "تها", "هما", "كما", "هم", "كم", "نا", "ها", "ه", "ك", "ي", 
+  "ات", "ون", "ين", "ان", "وا", "ة", "ا"
+];
 
 /**
  * Kandidat lemma yang dinormalkan untuk satu bentuk kata (surface).
- * Heuristik sementara; lemmatisasi akurat dihasilkan Gemini saat ingest.
+ * Memakai pemotongan berlapis (rekursif) agar mendeteksi kata kompleks.
  */
 export function lemmaCandidates(surface: string): string[] {
   const base = normalize(surface);
   const out = new Set<string>([base]);
 
-  const stripSuffix = (w: string) => {
+  // Fungsi rekursif untuk memotong awalan dan akhiran
+  function generate(word: string) {
+    if (word.length <= 2) return;
+    
+    // Potong akhiran
     for (const s of SUFFIXES) {
-      if (w.endsWith(s) && w.length - s.length >= 2) out.add(w.slice(0, -s.length));
+      if (word.endsWith(s) && word.length - s.length >= 2) {
+        const stripped = word.slice(0, -s.length);
+        if (!out.has(stripped)) {
+          out.add(stripped);
+          generate(stripped); // rekursi ke sisa kata
+        }
+      }
     }
-  };
 
-  stripSuffix(base);
-  for (const p of PREFIXES) {
-    if (base.startsWith(p) && base.length - p.length >= 2) {
-      const stripped = base.slice(p.length);
-      out.add(stripped);
-      stripSuffix(stripped);
+    // Potong awalan
+    for (const p of PREFIXES) {
+      if (word.startsWith(p) && word.length - p.length >= 2) {
+        const stripped = word.slice(p.length);
+        if (!out.has(stripped)) {
+          out.add(stripped);
+          generate(stripped); // rekursi ke sisa kata
+        }
+      }
     }
   }
+
+  generate(base);
   return [...out];
 }
 

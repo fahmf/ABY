@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ingestLesson } from "@/lib/ingest/pipeline";
+import { fastIndexLesson } from "@/lib/ingest/fast-index";
 
 function str(form: FormData, key: string): string {
   return String(form.get(key) ?? "").trim();
@@ -87,6 +88,22 @@ export async function ingestLessonAction(id: string) {
     const status = (err as { status?: number; code?: number })?.status ??
       (err as { status?: number; code?: number })?.code;
     const reason = status === 503 || status === 429 ? "busy" : "failed";
+    redirect(`/admin?ingest=${reason}`);
+  }
+  revalidatePath("/admin");
+  revalidatePath("/admin/dictionary");
+  redirect("/admin?ingest=ok");
+}
+
+// ---------- pipeline fast index (Tanpa AI) ----------
+export async function fastIndexAction(id: string) {
+  await requireStaff();
+  try {
+    await fastIndexLesson(id);
+  } catch (err) {
+    const status = (err as { status?: number; code?: number })?.status ??
+      (err as { status?: number; code?: number })?.code;
+    const reason = "failed";
     redirect(`/admin?ingest=${reason}`);
   }
   revalidatePath("/admin");
