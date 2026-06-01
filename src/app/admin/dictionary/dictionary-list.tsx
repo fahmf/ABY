@@ -8,8 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { setEntryStatus, deleteEntry, bulkSetEntryStatus, bulkDeleteEntries } from "../actions";
+import type { AdminEntry } from "@/lib/data/admin";
 
-export function DictionaryList({ drafts, published }: { drafts: any[]; published: any[] }) {
+export function DictionaryList({
+  drafts,
+  published,
+}: {
+  drafts: AdminEntry[];
+  published: AdminEntry[];
+}) {
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [isPending, startTransition] = React.useTransition();
 
@@ -20,7 +27,7 @@ export function DictionaryList({ drafts, published }: { drafts: any[]; published
     setSelected(next);
   };
 
-  const toggleAll = (entries: any[]) => {
+  const toggleAll = (entries: AdminEntry[]) => {
     const allSelected = entries.length > 0 && entries.every(e => selected.has(e.id));
     const next = new Set(selected);
     if (allSelected) {
@@ -47,7 +54,7 @@ export function DictionaryList({ drafts, published }: { drafts: any[]; published
     });
   };
 
-  const renderSection = (title: string, entries: any[]) => {
+  const renderSection = (title: string, entries: AdminEntry[]) => {
     const allSelected = entries.length > 0 && entries.every(e => selected.has(e.id));
     
     return (

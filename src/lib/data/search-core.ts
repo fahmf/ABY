@@ -13,6 +13,20 @@ export type SearchHit = {
 
 const RADIUS = 50;
 
+/**
+ * Bangun klausa `.or()` PostgREST yang aman untuk ilike multi-kolom.
+ * Dua lapis penanganan karakter khusus:
+ *  1) LIKE: escape `\ % _` agar input dicocokkan harfiah (tanpa wildcard injection).
+ *  2) PostgREST: nilai dibungkus tanda kutip ganda agar `, ( )` tidak merusak
+ *     struktur filter; `"` dan `\` di dalamnya di-escape.
+ */
+export function orIlike(columns: string[], q: string): string {
+  const likeEscaped = q.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const pattern = `%${likeEscaped}%`;
+  const quoted = pattern.replace(/[\\"]/g, (c) => `\\${c}`);
+  return columns.map((col) => `${col}.ilike."${quoted}"`).join(",");
+}
+
 export function snippetAround(body: string, idx: number, qLen: number): string {
   const from = Math.max(0, idx - RADIUS);
   const to = Math.min(body.length, idx + qLen + RADIUS);

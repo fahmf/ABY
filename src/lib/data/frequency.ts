@@ -34,17 +34,28 @@ export async function getRootFrequency(
 async function fromSupabase(surface: string): Promise<RootFrequency | null> {
   const supabase = await createClient();
 
-  // Cari root_id dari lemma yang cocok (entri published).
-  const { data: entry } = await supabase
+  // Cari root_id dari lemma yang cocok (entri published). Kandidat terurut dari
+  // paling spesifik; `.in()` tak menjaga urutan, jadi pilih yang paling spesifik.
+  const candidates = lemmaCandidates(surface);
+  const { data: entries } = await supabase
     .from("dictionary_entries")
-    .select("root_id,roots(root_ar)")
-    .in("lemma_norm", lemmaCandidates(surface))
+    .select("lemma_norm,root_id,roots(root_ar)")
+    .in("lemma_norm", candidates)
     .eq("status", "published")
-    .not("root_id", "is", null)
-    .limit(1)
-    .maybeSingle();
+    .not("root_id", "is", null);
 
-  const row = entry as { root_id: string | null; roots: { root_ar: string } | null } | null;
+  type EntryRow = {
+    lemma_norm: string | null;
+    root_id: string | null;
+    roots: { root_ar: string } | null;
+  };
+  const entryRows = (entries as unknown as EntryRow[]) ?? [];
+  const row =
+    candidates
+      .map((c) => entryRows.find((r) => r.lemma_norm === c))
+      .find(Boolean) ??
+    entryRows[0] ??
+    null;
   if (!row?.root_id) return null;
 
   const { data: toks } = await supabase

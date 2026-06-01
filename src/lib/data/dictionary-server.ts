@@ -6,6 +6,7 @@ import type { DictionaryEntry } from "./types";
 
 type DbRow = {
   lemma_ar: string;
+  lemma_norm?: string | null;
   meaning_ar: string | null;
   synonyms_ar: unknown;
   antonyms_ar: unknown;
@@ -65,24 +66,39 @@ export async function lookupEntry(
   if (isSupabaseConfigured()) {
     try {
       const supabase = await createClient();
-      let query = supabase
+      const query = supabase
         .from("dictionary_entries")
         .select(
-          "lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,word_type,plural_ar,singular_ar,past_ar,present_ar,masdar_ar,roots(root_ar)"
+          "lemma_ar,lemma_norm,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,word_type,plural_ar,singular_ar,past_ar,present_ar,masdar_ar,roots(root_ar)"
         )
         .eq("status", "published");
-      
-      if (exactLemma) {
-        query = query.eq("lemma_ar", exactLemma);
-      } else {
-        query = query.in("lemma_norm", lemmaCandidates(surface));
-      }
 
-      const { data } = await query.limit(1).maybeSingle();
-      if (data) return mapDbRow(data as unknown as DbRow);
+      if (exactLemma) {
+        const { data } = await query.eq("lemma_ar", exactLemma).limit(1).maybeSingle();
+        if (data) return mapDbRow(data as unknown as DbRow);
+      } else {
+        // Kandidat sudah terurut dari paling spesifik (terpanjang). `.in()` tidak
+        // menjaga urutan, jadi ambil semua lalu pilih kandidat paling spesifik.
+        const candidates = lemmaCandidates(surface);
+        const { data } = await query.in("lemma_norm", candidates);
+        const rows = (data as unknown as DbRow[]) ?? [];
+        if (rows.length > 0) {
+          const best = pickBestByCandidate(rows, candidates);
+          if (best) return mapDbRow(best);
+        }
+      }
     } catch {
       // jatuh ke seed di bawah
     }
   }
   return lookupWord(exactLemma || surface);
+}
+
+/** Pilih baris yang cocok dengan kandidat paling awal (paling spesifik). */
+function pickBestByCandidate(rows: DbRow[], candidates: string[]): DbRow | null {
+  for (const c of candidates) {
+    const hit = rows.find((r) => r.lemma_norm === c);
+    if (hit) return hit;
+  }
+  return rows[0] ?? null;
 }

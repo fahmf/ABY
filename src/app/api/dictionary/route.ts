@@ -12,5 +12,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ entry: null }, { status: 400 });
   }
   const entry = await lookupEntry(q, lemma || undefined);
-  return NextResponse.json({ entry });
+  return NextResponse.json(
+    { entry },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+      },
+    }
+  );
 }

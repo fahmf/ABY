@@ -9,5 +9,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ frequency: null }, { status: 400 });
   }
   const frequency = await getRootFrequency(q);
-  return NextResponse.json({ frequency });
+  return NextResponse.json(
+    { frequency },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+      },
+    }
+  );
 }

@@ -20,16 +20,31 @@ export async function getStaffProfile(): Promise<StaffProfile | null> {
 
   const { data } = await supabase
     .from("profiles")
-    .select("id,email,role")
+    .select("id,email,role,approved")
     .eq("id", user.id)
+    .eq("approved", true)
     .maybeSingle();
 
-  return (data as StaffProfile | null) ?? null;
+  if (!data) return null;
+  const row = data as StaffProfile & { approved: boolean };
+  return { id: row.id, email: row.email, role: row.role };
 }
 
 /** Pastikan pengguna staff; jika tidak, alihkan ke login. */
 export async function requireStaff(): Promise<StaffProfile> {
   const profile = await getStaffProfile();
   if (!profile) redirect("/admin/login");
+  return profile;
+}
+
+/**
+ * Pastikan pengguna ber-role admin (untuk aksi sensitif/destruktif).
+ * Catatan: hanya pasang ini pada aksi yang memang ingin dibatasi ke admin,
+ * karena profile default dibuat dengan role 'editor'. Bootstrap admin:
+ *   update profiles set role='admin', approved=true where email='…';
+ */
+export async function requireAdmin(): Promise<StaffProfile> {
+  const profile = await requireStaff();
+  if (profile.role !== "admin") redirect("/admin");
   return profile;
 }

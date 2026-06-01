@@ -100,9 +100,8 @@ export async function fastIndexAction(id: string) {
   await requireStaff();
   try {
     await fastIndexLesson(id);
-  } catch (err) {
-    const reason = "failed";
-    redirect(`/admin?ingest=${reason}`);
+  } catch {
+    redirect(`/admin?ingest=failed`);
   }
   revalidatePath("/admin");
   revalidatePath("/admin/dictionary");

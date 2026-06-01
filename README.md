@@ -34,7 +34,7 @@ bun test                     # tes otomatis (logika inti)
   (`tests/reader-text.test.tsx`) — token clickable, toggle harakat, ukuran
   font, panel kamus, highlight deep-link `#t=`.
 
-Setup DOM di `tests/setup.ts` (di-preload via `bunfig.toml`). 49 tes.
+Setup DOM di `tests/setup.ts` (di-preload via `bunfig.toml`). 80 tes.
 
 ## Database
 
