@@ -46,16 +46,27 @@ const field =
 export default async function AdminDashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ ingest?: string }>;
+  searchParams: Promise<{
+    ingest?: string;
+    mode?: string;
+    w?: string;
+    t?: string;
+    e?: string;
+  }>;
 }) {
   await requireStaff();
-  const [{ ingest }, volumes, units, lessons, publicAnalyze] = await Promise.all([
+  const [sp, volumes, units, lessons, publicAnalyze] = await Promise.all([
     searchParams,
     listVolumes(),
     listUnits(),
     listLessons(),
     getPublicAnalyze(),
   ]);
+  const { ingest, mode } = sp;
+  const recorded = Number(sp.w ?? "");
+  const totalW = Number(sp.t ?? "");
+  const newEntries = Number(sp.e ?? "");
+  const hasCounts = Number.isFinite(recorded) && sp.w !== undefined;
   const geminiOK = isGeminiConfigured();
 
   return (
@@ -88,26 +99,84 @@ export default async function AdminDashboard({
         </div>
       )}
 
+      {/*
+        Kotak notifikasi hasil "معالجة"/"فهرسة": selalu beri tahu berapa kata
+        yang tercatat — termasuk saat berhenti/gagal di tengah — agar admin
+        tahu apa yang sudah berhasil disimpan, bukan sekadar "gagal".
+      */}
       {ingest === "busy" && (
-        <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
-          <p className="text-muted-foreground">
-            خادم الذكاء الاصطناعي مزدحم حاليًّا (503). تمّ حفظ التقدّم — اضغط
-            «معالجة» مرّةً أخرى لاحقًا لإكمال ما تبقّى من حيث توقّف.
-          </p>
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/8 p-4 text-sm">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-500" />
+          <div className="space-y-1">
+            <p className="font-medium text-foreground">توقّفت المعالجة مؤقّتًا</p>
+            <p className="text-muted-foreground">
+              خادم الذكاء الاصطناعي مزدحم حاليًّا (503).
+              {hasCounts && Number.isFinite(totalW) && (
+                <>
+                  {" "}
+                  تمّ تسجيل <span className="font-semibold text-foreground">{recorded}</span> من{" "}
+                  <span className="font-semibold text-foreground">{totalW}</span> كلمة
+                  {Number.isFinite(newEntries) && newEntries > 0 && (
+                    <> (منها {newEntries} مدخلًا جديدًا)</>
+                  )}
+                  .
+                </>
+              )}{" "}
+              التقدّم محفوظ — اضغط «معالجة» مرّةً أخرى لإكمال ما تبقّى من حيث توقّف.
+            </p>
+          </div>
         </div>
       )}
       {ingest === "failed" && (
-        <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-sm">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-red-500" />
-          <p className="text-muted-foreground">
-            تعذّرت المعالجة. تحقّق من السجلّات وحاول مجدّدًا.
-          </p>
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/8 p-4 text-sm">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-red-500" />
+          <div className="space-y-1">
+            <p className="font-medium text-foreground">تعذّر إكمال المعالجة</p>
+            <p className="text-muted-foreground">
+              {hasCounts && Number.isFinite(totalW) ? (
+                <>
+                  تمّ تسجيل <span className="font-semibold text-foreground">{recorded}</span> من{" "}
+                  <span className="font-semibold text-foreground">{totalW}</span> كلمة قبل التوقّف.
+                  التقدّم محفوظ — اضغط «معالجة» للمتابعة، أو تحقّق من السجلّات.
+                </>
+              ) : (
+                <>تعذّرت المعالجة. تحقّق من السجلّات وحاول مجدّدًا.</>
+              )}
+            </p>
+          </div>
         </div>
       )}
       {ingest === "ok" && (
-        <div className="mb-6 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm text-muted-foreground">
-          تمّت المعالجة بنجاح.
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/8 p-4 text-sm">
+          <Sparkles className="mt-0.5 size-5 shrink-0 text-emerald-500" />
+          <div className="space-y-1">
+            <p className="font-medium text-foreground">
+              {mode === "fast" ? "اكتملت الفهرسة السريعة" : "اكتملت المعالجة بنجاح"}
+            </p>
+            {hasCounts && Number.isFinite(totalW) ? (
+              <p className="text-muted-foreground">
+                {mode === "fast" ? (
+                  <>
+                    طُوبِق <span className="font-semibold text-foreground">{recorded}</span> من{" "}
+                    <span className="font-semibold text-foreground">{totalW}</span> كلمة مع المعجم.
+                  </>
+                ) : (
+                  <>
+                    حُلِّلت <span className="font-semibold text-foreground">{recorded}</span> كلمة
+                    {Number.isFinite(newEntries) && newEntries > 0 && (
+                      <>
+                        ، وأُضيف <span className="font-semibold text-foreground">{newEntries}</span>{" "}
+                        مدخلًا جديدًا (مسوّدة بانتظار المراجعة)
+                      </>
+                    )}
+                    .
+                  </>
+                )}
+              </p>
+            ) : (
+              <p className="text-muted-foreground">تمّت العملية بنجاح.</p>
+            )}
+          </div>
         </div>
       )}
 

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Hash, Languages, Loader2, Sparkles } from "lucide-react";
+import { Check, Hash, Languages, Loader2, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -103,23 +103,23 @@ export function DictionaryPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col gap-4">
       <SheetHeader className="shrink-0">
-        <SheetTitle className="font-naskh text-3xl">{surface}</SheetTitle>
-        <SheetDescription className="flex items-center gap-2">
+        <SheetTitle className="font-naskh text-3xl sm:text-4xl">{surface}</SheetTitle>
+        <SheetDescription className="flex items-center gap-2 text-sm sm:text-base">
           {loading ? (
             <span className="flex items-center gap-1">
-              <Loader2 className="size-3.5 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
               جارٍ البحث…
             </span>
           ) : entry ? (
-            <Badge variant="secondary" className="gap-1">
-              <Hash className="size-3" />
+            <Badge variant="secondary" className="gap-1 text-sm">
+              <Hash className="size-3.5" />
               الجذر: {entry.root_ar || "—"}
             </Badge>
           ) : (
             <span className="flex items-center gap-1">
-              <Languages className="size-3.5" />
+              <Languages className="size-4" />
               قيد المراجعة — لا يوجد مدخل بعد
             </span>
           )}
@@ -127,15 +127,16 @@ export function DictionaryPanel({
       </SheetHeader>
 
       {!loading && entry && (
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-6 text-base sm:text-lg">
           {savedNote && (
-            <p className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-muted-foreground">
-              ✓ تمّ التحليل وحُفِظ كمسوّدة — سيظهر للجميع بعد مراجعة المشرف.
+            <p className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/8 px-3 py-2 text-xs text-emerald-700 sm:text-sm dark:text-emerald-300">
+              <Check className="size-4 shrink-0" />
+              تمّ التحليل وحُفِظ كمسوّدة — سيظهر للجميع بعد مراجعة المشرف.
             </p>
           )}
           {/* Morphology Info */}
           {(entry.word_type || entry.plural_ar || entry.singular_ar || entry.past_ar || entry.present_ar || entry.masdar_ar) && (
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground border-b pb-3">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground border-b pb-3 sm:text-base">
               {entry.word_type && (
                 <Badge variant="outline" className="bg-primary/5 text-primary">
                   {entry.word_type}
@@ -182,7 +183,11 @@ export function DictionaryPanel({
             <Field label="المرادفات">
               <div className="flex flex-wrap gap-1.5">
                 {entry.synonyms_ar.map((w) => (
-                  <Badge key={w} variant="outline">
+                  <Badge
+                    key={w}
+                    variant="outline"
+                    className="font-naskh text-sm sm:text-base"
+                  >
                     {w}
                   </Badge>
                 ))}
@@ -194,7 +199,11 @@ export function DictionaryPanel({
             <Field label="الأضداد">
               <div className="flex flex-wrap gap-1.5">
                 {entry.antonyms_ar.map((w) => (
-                  <Badge key={w} variant="outline">
+                  <Badge
+                    key={w}
+                    variant="outline"
+                    className="font-naskh text-sm sm:text-base"
+                  >
                     {w}
                   </Badge>
                 ))}
@@ -204,11 +213,11 @@ export function DictionaryPanel({
 
           {entry.examples_ar.length > 0 && (
             <Field label="أمثلة">
-              <ul className="flex flex-col gap-1.5">
+              <ul className="flex flex-col gap-2">
                 {entry.examples_ar.map((ex, i) => (
                   <li
                     key={i}
-                    className="font-naskh border-r-2 border-border pr-3 leading-relaxed text-muted-foreground"
+                    className="font-naskh border-r-2 border-primary/30 pr-3 leading-relaxed text-muted-foreground"
                   >
                     {ex}
                   </li>
@@ -225,7 +234,7 @@ export function DictionaryPanel({
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-6">
           {suggestions.length > 0 && (
             <div className="flex flex-col gap-2">
-              <h3 className="text-xs font-medium text-muted-foreground">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:text-sm">
                 هل تقصد؟
               </h3>
               <div className="flex flex-wrap gap-1.5">
@@ -235,7 +244,7 @@ export function DictionaryPanel({
                     type="button"
                     onClick={() => pickSuggestion(s.lemma_ar)}
                     title={s.meaning_ar}
-                    className="rounded-md border px-2.5 py-1 font-naskh text-base transition-colors hover:border-primary/40 hover:bg-accent"
+                    className="rounded-md border px-3 py-1.5 font-naskh text-base transition-colors hover:border-primary/40 hover:bg-accent sm:text-lg"
                   >
                     {s.lemma_ar}
                   </button>
@@ -300,7 +309,9 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <h3 className="text-xs font-medium text-muted-foreground">{label}</h3>
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:text-sm">
+        {label}
+      </h3>
       {children}
     </div>
   );

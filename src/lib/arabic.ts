@@ -28,8 +28,8 @@ export function normalize(text: string): string {
 
 // Klitik depan & akhiran umum untuk heuristik pencocokan bentuk kata → lemma.
 const PREFIXES = [
-  "وبال", "فبال", "وال", "فال", "بال", "كال", "لل", "ال",
-  "وس", "فس", "س",
+  "وبال", "فبال", "وال", "فال", "بال", "كال", "است", "مست", "لل", "ال",
+  "وس", "فس", "مت", "س",
   "و", "ف", "ب", "ك", "ل",
   "أ", "ن", "ي", "ت"
 ];
@@ -88,7 +88,13 @@ export function lemmaCandidates(surface: string): string[] {
     if (c.length >= 3 && c.endsWith("ت")) out.add(c.slice(0, -1) + "ه");
   }
 
-  return [...out].sort((a, b) => b.length - a.length);
+  // Buang potongan terlalu pendek (≤2 huruf) hasil pemotongan berlebih — ini
+  // sumber utama "salah deteksi": fragmen pendek kerap bertabrakan dengan
+  // lemma tak terkait. Bentuk asli (base) tetap dipertahankan walau pendek,
+  // agar kata fungsi 2-huruf (مِن، في، هل) tetap cocok dengan dirinya sendiri.
+  const candidates = [...out].filter((c) => c === base || c.length >= 3);
+
+  return candidates.sort((a, b) => b.length - a.length);
 }
 
 export type Segment =
