@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
@@ -9,8 +10,12 @@ export type StaffProfile = {
   role: "admin" | "editor";
 };
 
-/** Profil staff yang sedang login, atau null. */
-export async function getStaffProfile(): Promise<StaffProfile | null> {
+/**
+ * Profil staff yang sedang login, atau null.
+ * Dibungkus React.cache → di-dedupe dalam satu request server, sehingga layout
+ * & page tidak masing-masing memanggil auth.getUser() + query profiles.
+ */
+export const getStaffProfile = cache(async function (): Promise<StaffProfile | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = await createClient();
   const {
@@ -28,7 +33,7 @@ export async function getStaffProfile(): Promise<StaffProfile | null> {
   if (!data) return null;
   const row = data as StaffProfile & { approved: boolean };
   return { id: row.id, email: row.email, role: row.role };
-}
+});
 
 /** Pastikan pengguna staff; jika tidak, alihkan ke login. */
 export async function requireStaff(): Promise<StaffProfile> {

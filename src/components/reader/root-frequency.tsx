@@ -48,8 +48,8 @@ export function RootFrequencyButton({ surface }: { surface: string }) {
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[80vh] overflow-hidden">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[80vh] flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               مواضع ورود الجذر
               {data && (
@@ -75,7 +75,7 @@ export function RootFrequencyButton({ surface }: { surface: string }) {
           )}
 
           {!loading && data && data.occurrences.length > 0 && (
-            <ul className="flex flex-col gap-2 overflow-y-auto pe-1">
+            <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pe-1">
               {data.occurrences.map((o, i) => (
                 <li key={`${o.lessonSlug}-${o.position}-${i}`}>
                   <Link

@@ -42,8 +42,8 @@ export function DictionaryPanel({
   }, [surface, lemma]);
 
   return (
-    <div className="flex flex-col gap-4">
-      <SheetHeader>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <SheetHeader className="shrink-0">
         <SheetTitle className="font-naskh text-3xl">{surface}</SheetTitle>
         <SheetDescription className="flex items-center gap-2">
           {loading ? (
@@ -66,7 +66,7 @@ export function DictionaryPanel({
       </SheetHeader>
 
       {!loading && entry && (
-        <div className="flex flex-col gap-5 overflow-y-auto px-4 pb-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-6">
           {/* Morphology Info */}
           {(entry.word_type || entry.plural_ar || entry.singular_ar || entry.past_ar || entry.present_ar || entry.masdar_ar) && (
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground border-b pb-3">
