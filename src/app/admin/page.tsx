@@ -21,7 +21,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireStaff } from "@/lib/auth";
 import { isGeminiConfigured } from "@/lib/supabase/config";
-import { listLessons, listUnits, listVolumes } from "@/lib/data/admin";
+import {
+  getDictionaryStats,
+  listLessons,
+  listUnits,
+  listVolumes,
+} from "@/lib/data/admin";
 import { getPublicAnalyze } from "@/lib/data/settings";
 import {
   createUnit,
@@ -55,12 +60,13 @@ export default async function AdminDashboard({
   }>;
 }) {
   await requireStaff();
-  const [sp, volumes, units, lessons, publicAnalyze] = await Promise.all([
+  const [sp, volumes, units, lessons, publicAnalyze, stats] = await Promise.all([
     searchParams,
     listVolumes(),
     listUnits(),
     listLessons(),
     getPublicAnalyze(),
+    getDictionaryStats(),
   ]);
   const { ingest, mode } = sp;
   const recorded = Number(sp.w ?? "");
@@ -78,6 +84,11 @@ export default async function AdminDashboard({
             <Link href="/admin/dictionary">
               <Languages className="size-4" />
               مراجعة المعجم
+              {stats.entriesDraft > 0 && (
+                <Badge variant="secondary" className="ms-1">
+                  {stats.entriesDraft}
+                </Badge>
+              )}
             </Link>
           </Button>
           <Button asChild className="gap-1.5">
@@ -87,6 +98,21 @@ export default async function AdminDashboard({
             </Link>
           </Button>
         </div>
+      </div>
+
+      {/* Ringkasan cepat */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard label="مداخل المعجم" value={stats.entriesTotal} />
+        <StatCard
+          label="مسوّدات تنتظر"
+          value={stats.entriesDraft}
+          accent={stats.entriesDraft > 0}
+        />
+        <StatCard label="الجذور" value={stats.roots} />
+        <StatCard
+          label="نصوص مُفهرسة"
+          value={`${stats.lessonsIngested}/${stats.lessons}`}
+        />
       </div>
 
       {!geminiOK && (
@@ -381,6 +407,34 @@ export default async function AdminDashboard({
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: number | string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      className={
+        "rounded-lg border p-4 " +
+        (accent ? "border-primary/30 bg-primary/5" : "bg-card")
+      }
+    >
+      <div
+        className={
+          "text-2xl font-bold " + (accent ? "text-primary" : "text-foreground")
+        }
+      >
+        {value}
+      </div>
+      <div className="mt-0.5 text-xs text-muted-foreground">{label}</div>
     </div>
   );
 }

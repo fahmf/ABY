@@ -12,6 +12,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { RootFrequencyButton } from "./root-frequency";
+import { WordActions } from "./word-actions";
+import { StaffRetag } from "./staff-retag";
 import type { DictionaryEntry } from "@/lib/data/types";
 
 type Suggestion = { lemma_ar: string; root_ar: string; meaning_ar: string };
@@ -19,9 +21,13 @@ type Suggestion = { lemma_ar: string; root_ar: string; meaning_ar: string };
 export function DictionaryPanel({
   surface,
   lemma,
+  lessonSlug,
+  isStaff = false,
 }: {
   surface: string;
   lemma?: string;
+  lessonSlug?: string;
+  isStaff?: boolean;
 }) {
   const [entry, setEntry] = React.useState<DictionaryEntry | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -32,49 +38,52 @@ export function DictionaryPanel({
     "unauthorized" | "busy" | "failed" | "rate_limited" | null
   >(null);
 
-  React.useEffect(() => {
-    let active = true;
-    const t = setTimeout(() => {
-      if (!active) return;
+  // Ambil entri (atau saran) untuk bentuk kata + lemma opsional. Dipakai oleh
+  // efek awal & oleh tombol koreksi staff agar panel langsung tersegarkan.
+  const load = React.useCallback(
+    (pickedLemma?: string) => {
+      let active = true;
       setLoading(true);
       setAiError(null);
       setSavedNote(false);
-    }, 0);
-    let url = `/api/dictionary?q=${encodeURIComponent(surface)}`;
-    if (lemma) url += `&lemma=${encodeURIComponent(lemma)}`;
+      let url = `/api/dictionary?q=${encodeURIComponent(surface)}`;
+      if (pickedLemma) url += `&lemma=${encodeURIComponent(pickedLemma)}`;
+      fetch(url)
+        .then((r) => r.json())
+        .then((d) => {
+          if (!active) return;
+          setEntry(d.entry ?? null);
+          setSuggestions(d.entry ? [] : (d.suggestions ?? []));
+        })
+        .catch(() => {
+          if (!active) return;
+          setEntry(null);
+          setSuggestions([]);
+        })
+        .finally(() => active && setLoading(false));
+      return () => {
+        active = false;
+      };
+    },
+    [surface]
+  );
 
-    fetch(url)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!active) return;
-        setEntry(d.entry ?? null);
-        setSuggestions(d.entry ? [] : (d.suggestions ?? []));
-      })
-      .catch(() => {
-        if (!active) return;
-        setEntry(null);
-        setSuggestions([]);
-      })
-      .finally(() => active && setLoading(false));
+  React.useEffect(() => {
+    // Tunda satu macrotask agar setState awal tak berjalan sinkron dalam efek.
+    let cancel = () => {};
+    const t = setTimeout(() => {
+      cancel = load(lemma);
+    }, 0);
     return () => {
-      active = false;
       clearTimeout(t);
+      cancel();
     };
-  }, [surface, lemma]);
+  }, [load, lemma]);
 
   // Klik saran "هل تقصد؟" → ambil entri lemma terpilih.
   function pickSuggestion(pickedLemma: string) {
-    setLoading(true);
     setSuggestions([]);
-    fetch(
-      `/api/dictionary?q=${encodeURIComponent(surface)}&lemma=${encodeURIComponent(
-        pickedLemma
-      )}`
-    )
-      .then((r) => r.json())
-      .then((d) => setEntry(d.entry ?? null))
-      .catch(() => setEntry(null))
-      .finally(() => setLoading(false));
+    load(pickedLemma);
   }
 
   // Analisis AI on-demand (khusus staff) → tampilkan & simpan draft.
@@ -128,6 +137,12 @@ export function DictionaryPanel({
 
       {!loading && entry && (
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-6 text-base sm:text-lg">
+          <WordActions
+            lemma={entry.lemma_ar}
+            root={entry.root_ar}
+            meaning={entry.meaning_ar}
+            surface={surface}
+          />
           {savedNote && (
             <p className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/8 px-3 py-2 text-xs text-emerald-700 sm:text-sm dark:text-emerald-300">
               <Check className="size-4 shrink-0" />
@@ -226,6 +241,15 @@ export function DictionaryPanel({
             </Field>
           )}
 
+          {isStaff && lessonSlug && (
+            <StaffRetag
+              surface={surface}
+              lessonSlug={lessonSlug}
+              currentLemma={entry.lemma_ar}
+              onChanged={(picked) => load(picked ?? undefined)}
+            />
+          )}
+
           <RootFrequencyButton surface={surface} />
         </div>
       )}
@@ -292,6 +316,14 @@ export function DictionaryPanel({
               </p>
             )}
           </div>
+
+          {isStaff && lessonSlug && (
+            <StaffRetag
+              surface={surface}
+              lessonSlug={lessonSlug}
+              onChanged={(picked) => load(picked ?? undefined)}
+            />
+          )}
 
           <RootFrequencyButton surface={surface} />
         </div>

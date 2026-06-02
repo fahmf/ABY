@@ -96,6 +96,47 @@ function mapEntry(r: EntryRow): AdminEntry {
   };
 }
 
+export type AdminStats = {
+  entriesTotal: number;
+  entriesDraft: number;
+  entriesPublished: number;
+  roots: number;
+  lessons: number;
+  lessonsIngested: number;
+};
+
+/** Ringkasan untuk dasbor admin (memakai count head agar ringan). */
+export async function getDictionaryStats(): Promise<AdminStats> {
+  const supabase = await createClient();
+  const head = { count: "exact" as const, head: true };
+  const [
+    entriesTotal,
+    entriesDraft,
+    entriesPublished,
+    roots,
+    lessons,
+    lessonsIngested,
+  ] = await Promise.all([
+    supabase.from("dictionary_entries").select("*", head),
+    supabase.from("dictionary_entries").select("*", head).eq("status", "draft"),
+    supabase
+      .from("dictionary_entries")
+      .select("*", head)
+      .eq("status", "published"),
+    supabase.from("roots").select("*", head),
+    supabase.from("lessons").select("*", head),
+    supabase.from("lessons").select("*", head).not("ingested_at", "is", null),
+  ]);
+  return {
+    entriesTotal: entriesTotal.count ?? 0,
+    entriesDraft: entriesDraft.count ?? 0,
+    entriesPublished: entriesPublished.count ?? 0,
+    roots: roots.count ?? 0,
+    lessons: lessons.count ?? 0,
+    lessonsIngested: lessonsIngested.count ?? 0,
+  };
+}
+
 export async function listDictionaryEntries(
   status?: "draft" | "published"
 ): Promise<AdminEntry[]> {

@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getVolumes } from "@/lib/data/repository";
+import { ContinueReading } from "@/components/learner/continue-reading";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,11 @@ export default async function Home() {
           </p>
         </section>
 
-        <section className="mt-14">
+        <div className="mt-14">
+          <ContinueReading />
+        </div>
+
+        <section>
           <h2 className="mb-5 flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <span className="h-px flex-1 bg-border" />
             اختر الجزء

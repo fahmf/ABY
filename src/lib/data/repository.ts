@@ -202,6 +202,59 @@ export async function getDictionaryMatches(lessonSlug: string): Promise<Record<n
   return matches;
 }
 
+export type VocabItem = { lemma_ar: string; meaning_ar: string; root_ar: string };
+
+/**
+ * Kosakata sebuah pelajaran untuk kuis: lemma yang muncul di teks DAN punya
+ * مدخل منشور bermakna. Dipakai membuat soal pilihan-ganda (kata → معنى).
+ */
+export async function getLessonVocabulary(
+  lessonSlug: string
+): Promise<VocabItem[]> {
+  if (!isSupabaseConfigured()) return [];
+  try {
+    const supabase = await createClient();
+    const { data: lesson } = await supabase
+      .from("lessons")
+      .select("id")
+      .eq("slug", lessonSlug)
+      .maybeSingle();
+    if (!lesson) return [];
+
+    const { data: tokens } = await supabase
+      .from("tokens")
+      .select("lemma_ar")
+      .eq("lesson_id", (lesson as { id: string }).id)
+      .not("lemma_ar", "is", null);
+    const lemmas = [
+      ...new Set(((tokens as { lemma_ar: string }[]) ?? []).map((t) => t.lemma_ar)),
+    ];
+    if (lemmas.length === 0) return [];
+
+    const { data: entries } = await supabase
+      .from("dictionary_entries")
+      .select("lemma_ar, meaning_ar, roots(root_ar)")
+      .eq("status", "published")
+      .in("lemma_ar", lemmas);
+
+    const rows =
+      (entries as unknown as {
+        lemma_ar: string;
+        meaning_ar: string | null;
+        roots: { root_ar: string } | null;
+      }[]) ?? [];
+    return rows
+      .filter((r) => (r.meaning_ar ?? "").trim().length > 0)
+      .map((r) => ({
+        lemma_ar: r.lemma_ar,
+        meaning_ar: (r.meaning_ar ?? "").trim(),
+        root_ar: r.roots?.root_ar ?? "",
+      }));
+  } catch {
+    return [];
+  }
+}
+
 // ---------- bentuk baris hasil join Supabase ----------
 type UnitRow = {
   slug: string;
