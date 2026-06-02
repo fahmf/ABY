@@ -94,4 +94,17 @@ describe("lemmaCandidates", () => {
       expect(c.length).toBeGreaterThanOrEqual(2);
     }
   });
+
+  test("melepas awalan fi'il + akhiran objek (تُخاصِمْني → خاصم)", () => {
+    expect(lemmaCandidates("تُخاصِمْني")).toContain("خاصم");
+  });
+
+  test("ta marbuthah bersambung: طاقَتِكَ → طاقه", () => {
+    // ة berubah jadi ت saat bersambung dhamir; varian ت→ه harus muncul
+    expect(lemmaCandidates("طاقَتِكَ")).toContain("طاقه");
+  });
+
+  test("akhiran objek ها pada fi'il (يَفْهَمُها → فهم)", () => {
+    expect(lemmaCandidates("يَفْهَمُها")).toContain("فهم");
+  });
 });

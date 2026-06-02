@@ -11,9 +11,10 @@ async function testGemini() {
     const res = await generateEntries(["وَحْدَة", "كتاب", "طاولة"]);
     console.log("Success! Output:");
     console.log(JSON.stringify(res, null, 2));
-  } catch (err: any) {
-    console.error("Error occurred:", err.message);
-    if (err.status) console.error("Status:", err.status);
+  } catch (err) {
+    const e = err as { message?: string; status?: number };
+    console.error("Error occurred:", e.message);
+    if (e.status) console.error("Status:", e.status);
     console.log(err);
   }
 }

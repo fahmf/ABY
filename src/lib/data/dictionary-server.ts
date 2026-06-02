@@ -1,4 +1,4 @@
-import { lemmaCandidates } from "@/lib/arabic";
+import { lemmaCandidates, normalize } from "@/lib/arabic";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { lookupWord } from "./dictionary";
@@ -92,6 +92,31 @@ export async function lookupEntry(
     }
   }
   return lookupWord(exactLemma || surface);
+}
+
+export type Suggestion = { lemma_ar: string; root_ar: string; meaning_ar: string };
+
+/**
+ * Saran "هل تقصد؟" untuk bentuk kata yang tak ditemukan persis — kemiripan
+ * trigram ber-ambang (lihat RPC suggest_dictionary). Hanya kata yang cukup
+ * mirip (mis. salah ketik) yang dikembalikan; jika tidak, array kosong.
+ */
+export async function suggestEntries(surface: string): Promise<Suggestion[]> {
+  if (!isSupabaseConfigured()) return [];
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.rpc("suggest_dictionary", {
+      p_q: normalize(surface),
+    });
+    const rows = (data as Suggestion[] | null) ?? [];
+    return rows.map((r) => ({
+      lemma_ar: r.lemma_ar,
+      root_ar: r.root_ar ?? "",
+      meaning_ar: r.meaning_ar ?? "",
+    }));
+  } catch {
+    return [];
+  }
 }
 
 /** Pilih baris yang cocok dengan kandidat paling awal (paling spesifik). */
