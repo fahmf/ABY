@@ -16,8 +16,11 @@ export function FastIndexButton() {
       disabled={pending}
       title={pending ? "جارٍ الفهرسة…" : "فهرسة سريعة (بدون ذكاء اصطناعي)"}
     >
-      <Zap className={`mr-2 size-4 ${pending ? "animate-pulse" : ""}`} />
-      {pending ? "جارٍ الفهرسة…" : "فهرسة سريعة"}
+      <Zap className={`size-4 sm:mr-2 ${pending ? "animate-pulse" : ""}`} />
+      {/* Label disembunyikan di layar kecil agar baris tetap rapi di الهاتف. */}
+      <span className="hidden sm:inline">
+        {pending ? "جارٍ الفهرسة…" : "فهرسة سريعة"}
+      </span>
     </Button>
   );
 }

@@ -227,7 +227,7 @@ export default async function AdminDashboard({
           {lessons.map((l) => (
             <div
               key={l.id}
-              className="flex items-center justify-between gap-3 rounded-md border p-3"
+              className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
             >
               <div className="min-w-0">
                 <p className="truncate font-naskh text-lg">{l.title_ar}</p>
@@ -235,7 +235,7 @@ export default async function AdminDashboard({
                   {l.unitTitle}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0 sm:gap-2">
                 <Badge
                   variant={l.status === "published" ? "default" : "secondary"}
                 >

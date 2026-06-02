@@ -26,8 +26,11 @@ export default async function AdminLayout({
               <LayoutDashboard className="size-4" />
               لوحة التحكّم
             </Link>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground" dir="ltr">
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className="max-w-[45vw] truncate text-xs text-muted-foreground sm:max-w-none"
+                dir="ltr"
+              >
                 {profile.email}
               </span>
               <form action={signOut}>
