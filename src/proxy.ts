@@ -9,6 +9,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Jalankan di semua rute kecuali aset statis & gambar.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg).*)"],
+  // Hanya rute /admin yang perlu proteksi sesi; halaman publik tak perlu
+  // melewati middleware sama sekali (hindari latensi auth di tiap kunjungan).
+  matcher: ["/admin/:path*"],
 };
