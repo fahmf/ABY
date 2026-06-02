@@ -14,7 +14,8 @@ export async function generateMetadata({
   params: Promise<{ lesson: string }>;
 }): Promise<Metadata> {
   const { lesson } = await params;
-  const data = await getLesson(lesson);
+  const decodedLesson = decodeURIComponent(lesson);
+  const data = await getLesson(decodedLesson);
   if (!data) return { title: "النص غير موجود" };
   const desc = stripDiacritics(data.body_ar).slice(0, 150);
   return {
@@ -30,7 +31,8 @@ export default async function ReadPage({
   params: Promise<{ lesson: string }>;
 }) {
   const { lesson } = await params;
-  const data = await getLesson(lesson);
+  const decodedLesson = decodeURIComponent(lesson);
+  const data = await getLesson(decodedLesson);
   if (!data) notFound();
 
   const [unit, dictMatches] = await Promise.all([

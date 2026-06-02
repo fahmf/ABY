@@ -12,8 +12,9 @@ export default async function UnitPage({
   params: Promise<{ number: string; unit: string }>;
 }) {
   const { number, unit } = await params;
+  const decodedUnit = decodeURIComponent(unit);
   const volume = await getVolume(Number(number));
-  const unitData = volume ? await getUnit(volume.number, unit) : null;
+  const unitData = volume ? await getUnit(volume.number, decodedUnit) : null;
   if (!volume || !unitData) notFound();
 
   const lessons = await getLessons(unitData.slug);
