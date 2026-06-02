@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { getLessons, getUnit, getVolume } from "@/lib/data/repository";
+import { LessonStatusDot } from "@/components/learner/lesson-status-dot";
 
 export default async function UnitPage({
   params,
@@ -42,6 +43,7 @@ export default async function UnitPage({
                   <CardTitle className="font-naskh text-xl">
                     {l.title_ar}
                   </CardTitle>
+                  <LessonStatusDot slug={l.slug} />
                 </div>
                 <ArrowLeft className="size-4 text-muted-foreground transition-transform group-hover:-translate-x-1" />
               </CardHeader>

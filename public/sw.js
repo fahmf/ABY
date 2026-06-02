@@ -1,6 +1,12 @@
 // Service worker ABY — cache app shell & strategi runtime sederhana.
-const CACHE = "aby-v3";
-const APP_SHELL = ["/", "/cari", "/manifest.webmanifest", "/icon.svg"];
+const CACHE = "aby-v4";
+const APP_SHELL = [
+  "/",
+  "/cari",
+  "/mufradati",
+  "/manifest.webmanifest",
+  "/icon.svg",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

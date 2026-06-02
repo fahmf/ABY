@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Hash, Languages, Loader2, Sparkles } from "lucide-react";
+import { Check, Hash, Languages, Loader2, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { RootFrequencyButton } from "./root-frequency";
+import { WordActions } from "./word-actions";
+import { StaffRetag } from "./staff-retag";
 import type { DictionaryEntry } from "@/lib/data/types";
 
 type Suggestion = { lemma_ar: string; root_ar: string; meaning_ar: string };
@@ -19,60 +21,69 @@ type Suggestion = { lemma_ar: string; root_ar: string; meaning_ar: string };
 export function DictionaryPanel({
   surface,
   lemma,
+  lessonSlug,
+  isStaff = false,
 }: {
   surface: string;
   lemma?: string;
+  lessonSlug?: string;
+  isStaff?: boolean;
 }) {
   const [entry, setEntry] = React.useState<DictionaryEntry | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [suggestions, setSuggestions] = React.useState<Suggestion[]>([]);
   const [analyzing, setAnalyzing] = React.useState(false);
-  const [aiError, setAiError] = React.useState<"unauthorized" | "busy" | "failed" | null>(
-    null
+  const [savedNote, setSavedNote] = React.useState(false);
+  const [aiError, setAiError] = React.useState<
+    "unauthorized" | "busy" | "failed" | "rate_limited" | null
+  >(null);
+
+  // Ambil entri (atau saran) untuk bentuk kata + lemma opsional. Dipakai oleh
+  // efek awal & oleh tombol koreksi staff agar panel langsung tersegarkan.
+  const load = React.useCallback(
+    (pickedLemma?: string) => {
+      let active = true;
+      setLoading(true);
+      setAiError(null);
+      setSavedNote(false);
+      let url = `/api/dictionary?q=${encodeURIComponent(surface)}`;
+      if (pickedLemma) url += `&lemma=${encodeURIComponent(pickedLemma)}`;
+      fetch(url)
+        .then((r) => r.json())
+        .then((d) => {
+          if (!active) return;
+          setEntry(d.entry ?? null);
+          setSuggestions(d.entry ? [] : (d.suggestions ?? []));
+        })
+        .catch(() => {
+          if (!active) return;
+          setEntry(null);
+          setSuggestions([]);
+        })
+        .finally(() => active && setLoading(false));
+      return () => {
+        active = false;
+      };
+    },
+    [surface]
   );
 
   React.useEffect(() => {
-    let active = true;
+    // Tunda satu macrotask agar setState awal tak berjalan sinkron dalam efek.
+    let cancel = () => {};
     const t = setTimeout(() => {
-      if (!active) return;
-      setLoading(true);
-      setAiError(null);
+      cancel = load(lemma);
     }, 0);
-    let url = `/api/dictionary?q=${encodeURIComponent(surface)}`;
-    if (lemma) url += `&lemma=${encodeURIComponent(lemma)}`;
-
-    fetch(url)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!active) return;
-        setEntry(d.entry ?? null);
-        setSuggestions(d.entry ? [] : (d.suggestions ?? []));
-      })
-      .catch(() => {
-        if (!active) return;
-        setEntry(null);
-        setSuggestions([]);
-      })
-      .finally(() => active && setLoading(false));
     return () => {
-      active = false;
       clearTimeout(t);
+      cancel();
     };
-  }, [surface, lemma]);
+  }, [load, lemma]);
 
   // Klik saran "هل تقصد؟" → ambil entri lemma terpilih.
   function pickSuggestion(pickedLemma: string) {
-    setLoading(true);
     setSuggestions([]);
-    fetch(
-      `/api/dictionary?q=${encodeURIComponent(surface)}&lemma=${encodeURIComponent(
-        pickedLemma
-      )}`
-    )
-      .then((r) => r.json())
-      .then((d) => setEntry(d.entry ?? null))
-      .catch(() => setEntry(null))
-      .finally(() => setLoading(false));
+    load(pickedLemma);
   }
 
   // Analisis AI on-demand (khusus staff) → tampilkan & simpan draft.
@@ -85,8 +96,11 @@ export function DictionaryPanel({
         if (r.ok && d.entry) {
           setEntry(d.entry as DictionaryEntry);
           setSuggestions([]);
+          setSavedNote(true);
         } else if (r.status === 403) {
           setAiError("unauthorized");
+        } else if (r.status === 429) {
+          setAiError("rate_limited");
         } else if (r.status === 503) {
           setAiError("busy");
         } else {
@@ -98,23 +112,23 @@ export function DictionaryPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col gap-4">
       <SheetHeader className="shrink-0">
-        <SheetTitle className="font-naskh text-3xl">{surface}</SheetTitle>
-        <SheetDescription className="flex items-center gap-2">
+        <SheetTitle className="font-naskh text-3xl sm:text-4xl">{surface}</SheetTitle>
+        <SheetDescription className="flex items-center gap-2 text-sm sm:text-base">
           {loading ? (
             <span className="flex items-center gap-1">
-              <Loader2 className="size-3.5 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
               جارٍ البحث…
             </span>
           ) : entry ? (
-            <Badge variant="secondary" className="gap-1">
-              <Hash className="size-3" />
+            <Badge variant="secondary" className="gap-1 text-sm">
+              <Hash className="size-3.5" />
               الجذر: {entry.root_ar || "—"}
             </Badge>
           ) : (
             <span className="flex items-center gap-1">
-              <Languages className="size-3.5" />
+              <Languages className="size-4" />
               قيد المراجعة — لا يوجد مدخل بعد
             </span>
           )}
@@ -122,10 +136,22 @@ export function DictionaryPanel({
       </SheetHeader>
 
       {!loading && entry && (
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-6 text-base sm:text-lg">
+          <WordActions
+            lemma={entry.lemma_ar}
+            root={entry.root_ar}
+            meaning={entry.meaning_ar}
+            surface={surface}
+          />
+          {savedNote && (
+            <p className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/8 px-3 py-2 text-xs text-emerald-700 sm:text-sm dark:text-emerald-300">
+              <Check className="size-4 shrink-0" />
+              تمّ التحليل وحُفِظ كمسوّدة — سيظهر للجميع بعد مراجعة المشرف.
+            </p>
+          )}
           {/* Morphology Info */}
           {(entry.word_type || entry.plural_ar || entry.singular_ar || entry.past_ar || entry.present_ar || entry.masdar_ar) && (
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground border-b pb-3">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground border-b pb-3 sm:text-base">
               {entry.word_type && (
                 <Badge variant="outline" className="bg-primary/5 text-primary">
                   {entry.word_type}
@@ -172,7 +198,11 @@ export function DictionaryPanel({
             <Field label="المرادفات">
               <div className="flex flex-wrap gap-1.5">
                 {entry.synonyms_ar.map((w) => (
-                  <Badge key={w} variant="outline">
+                  <Badge
+                    key={w}
+                    variant="outline"
+                    className="font-naskh text-sm sm:text-base"
+                  >
                     {w}
                   </Badge>
                 ))}
@@ -184,7 +214,11 @@ export function DictionaryPanel({
             <Field label="الأضداد">
               <div className="flex flex-wrap gap-1.5">
                 {entry.antonyms_ar.map((w) => (
-                  <Badge key={w} variant="outline">
+                  <Badge
+                    key={w}
+                    variant="outline"
+                    className="font-naskh text-sm sm:text-base"
+                  >
                     {w}
                   </Badge>
                 ))}
@@ -194,17 +228,26 @@ export function DictionaryPanel({
 
           {entry.examples_ar.length > 0 && (
             <Field label="أمثلة">
-              <ul className="flex flex-col gap-1.5">
+              <ul className="flex flex-col gap-2">
                 {entry.examples_ar.map((ex, i) => (
                   <li
                     key={i}
-                    className="font-naskh border-r-2 border-border pr-3 leading-relaxed text-muted-foreground"
+                    className="font-naskh border-r-2 border-primary/30 pr-3 leading-relaxed text-muted-foreground"
                   >
                     {ex}
                   </li>
                 ))}
               </ul>
             </Field>
+          )}
+
+          {isStaff && lessonSlug && (
+            <StaffRetag
+              surface={surface}
+              lessonSlug={lessonSlug}
+              currentLemma={entry.lemma_ar}
+              onChanged={(picked) => load(picked ?? undefined)}
+            />
           )}
 
           <RootFrequencyButton surface={surface} />
@@ -215,7 +258,7 @@ export function DictionaryPanel({
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-6">
           {suggestions.length > 0 && (
             <div className="flex flex-col gap-2">
-              <h3 className="text-xs font-medium text-muted-foreground">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:text-sm">
                 هل تقصد؟
               </h3>
               <div className="flex flex-wrap gap-1.5">
@@ -225,7 +268,7 @@ export function DictionaryPanel({
                     type="button"
                     onClick={() => pickSuggestion(s.lemma_ar)}
                     title={s.meaning_ar}
-                    className="rounded-md border px-2.5 py-1 font-naskh text-base transition-colors hover:border-primary/40 hover:bg-accent"
+                    className="rounded-md border px-3 py-1.5 font-naskh text-base transition-colors hover:border-primary/40 hover:bg-accent sm:text-lg"
                   >
                     {s.lemma_ar}
                   </button>
@@ -262,12 +305,25 @@ export function DictionaryPanel({
                 الخادم مزدحم حاليًّا، حاول بعد قليل.
               </p>
             )}
+            {aiError === "rate_limited" && (
+              <p className="text-sm text-muted-foreground">
+                لقد أكثرتَ من الطلبات. انتظر قليلاً ثم حاول مجدّدًا.
+              </p>
+            )}
             {aiError === "failed" && (
               <p className="text-sm text-muted-foreground">
                 تعذّر التحليل. حاول مرّةً أخرى.
               </p>
             )}
           </div>
+
+          {isStaff && lessonSlug && (
+            <StaffRetag
+              surface={surface}
+              lessonSlug={lessonSlug}
+              onChanged={(picked) => load(picked ?? undefined)}
+            />
+          )}
 
           <RootFrequencyButton surface={surface} />
         </div>
@@ -285,7 +341,9 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <h3 className="text-xs font-medium text-muted-foreground">{label}</h3>
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:text-sm">
+        {label}
+      </h3>
       {children}
     </div>
   );

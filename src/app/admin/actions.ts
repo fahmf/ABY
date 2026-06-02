@@ -80,32 +80,50 @@ export async function deleteLesson(id: string) {
 // ---------- pipeline ingest (Gemini) ----------
 export async function ingestLessonAction(id: string) {
   await requireStaff();
+  let params: URLSearchParams;
   try {
-    await ingestLesson(id);
+    const r = await ingestLesson(id);
+    // Pipeline kini selalu mengembalikan hasil (parsial bila terhenti) alih-alih
+    // melempar untuk kegagalan per-batch — jadi kita selalu punya angka untuk
+    // ditampilkan: berapa kata tercatat & berapa mdkhal baru.
+    params = new URLSearchParams({
+      ingest: r.done ? "ok" : (r.reason ?? "failed"),
+      w: String(r.processedWords),
+      t: String(r.uniqueWords),
+      e: String(r.newEntries),
+    });
   } catch (err) {
-    // Kegagalan (mis. Gemini kelebihan beban / 503) tidak boleh meledakkan
-    // halaman admin — kembalikan ke daftar dengan pesan ramah.
-    const status = (err as { status?: number; code?: number })?.status ??
+    // Hanya kegagalan setup (GEMINI_API_KEY kosong / teks tak ada) yang sampai
+    // ke sini — tak ada angka untuk dilaporkan.
+    const status =
+      (err as { status?: number; code?: number })?.status ??
       (err as { status?: number; code?: number })?.code;
     const reason = status === 503 || status === 429 ? "busy" : "failed";
     redirect(`/admin?ingest=${reason}`);
   }
   revalidatePath("/admin");
   revalidatePath("/admin/dictionary");
-  redirect("/admin?ingest=ok");
+  redirect(`/admin?${params}`);
 }
 
 // ---------- pipeline fast index (Tanpa AI) ----------
 export async function fastIndexAction(id: string) {
   await requireStaff();
+  let params: URLSearchParams;
   try {
-    await fastIndexLesson(id);
+    const r = await fastIndexLesson(id);
+    params = new URLSearchParams({
+      ingest: "ok",
+      mode: "fast",
+      w: String(r.matchedTokens),
+      t: String(r.totalWords),
+    });
   } catch {
     redirect(`/admin?ingest=failed`);
   }
   revalidatePath("/admin");
   revalidatePath("/admin/dictionary");
-  redirect("/admin?ingest=ok");
+  redirect(`/admin?${params}`);
 }
 
 // ---------- verifikasi kamus ----------
@@ -195,4 +213,17 @@ export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/admin/login");
+}
+
+// ---------- pengaturan: buka/tutup analisis AI untuk publik ----------
+export async function setPublicAnalyze(value: boolean) {
+  await requireStaff();
+  const supabase = await createClient();
+  await supabase
+    .from("app_settings")
+    .upsert(
+      { key: "public_analyze", value, updated_at: new Date().toISOString() },
+      { onConflict: "key" }
+    );
+  revalidatePath("/admin");
 }

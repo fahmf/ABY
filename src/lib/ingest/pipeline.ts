@@ -14,10 +14,14 @@ export type IngestResult = {
   lessonId: string;
   tokens: number;
   uniqueWords: number;
+  /** Kata unik yang sudah dianalisis & tercatat sampai titik ini (kumulatif). */
+  processedWords: number;
   newEntries: number;
   newRoots: number;
   totalBatches: number;
   done: boolean;
+  /** Diisi bila berhenti sebelum tuntas: penyebab agar UI bisa memberi pesan. */
+  reason?: "busy" | "failed";
 };
 
 /**
@@ -88,7 +92,9 @@ export async function ingestLesson(lessonId: string): Promise<IngestResult> {
 
   let newEntries = 0;
   let newRoots = 0;
+  let reason: "busy" | "failed" | undefined;
 
+  try {
   for (let i = cursor; i < batches.length; i++) {
     const entries = await generateEntries(batches[i]);
 
@@ -177,20 +183,35 @@ export async function ingestLesson(lessonId: string): Promise<IngestResult> {
       .update({ ingest_cursor: cursor })
       .eq("id", lessonId);
   }
+  } catch (err) {
+    // Gagal/terhenti di tengah (mis. Gemini 503/429 setelah retry, atau
+    // timeout platform). Kursor terakhir SUDAH tersimpan, jadi kita tidak
+    // melempar ulang — kembalikan hasil PARSIAL agar UI bisa menampilkan
+    // berapa kata yang sudah tercatat & mengapa berhenti.
+    const status =
+      (err as { status?: number; code?: number })?.status ??
+      (err as { status?: number; code?: number })?.code;
+    reason = status === 503 || status === 429 ? "busy" : "failed";
+  }
 
+  const done = cursor >= batches.length;
   // Tuntas: tandai waktu ingest & reset kursor.
-  await supabase
-    .from("lessons")
-    .update({ ingested_at: new Date().toISOString(), ingest_cursor: 0 })
-    .eq("id", lessonId);
+  if (done) {
+    await supabase
+      .from("lessons")
+      .update({ ingested_at: new Date().toISOString(), ingest_cursor: 0 })
+      .eq("id", lessonId);
+  }
 
   return {
     lessonId,
     tokens: tokRows?.length ?? 0,
     uniqueWords: words.size,
+    processedWords: Math.min(cursor * BATCH_SIZE, reps.length),
     newEntries,
     newRoots,
     totalBatches: batches.length,
-    done: true,
+    done,
+    reason: done ? undefined : (reason ?? "failed"),
   };
 }

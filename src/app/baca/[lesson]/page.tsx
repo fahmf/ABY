@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ReaderText } from "@/components/reader/reader-text";
 import { stripDiacritics } from "@/lib/arabic";
 import { getUnit, getLesson, getDictionaryMatches } from "@/lib/data/repository";
+import { getStaffProfile } from "@/lib/auth";
 
 export async function generateMetadata({
   params,
@@ -35,9 +36,10 @@ export default async function ReadPage({
   const data = await getLesson(decodedLesson);
   if (!data) notFound();
 
-  const [unit, dictMatches] = await Promise.all([
+  const [unit, dictMatches, staff] = await Promise.all([
     getUnit(data.volumeNumber, data.unitSlug),
     getDictionaryMatches(data.slug),
+    getStaffProfile(),
   ]);
 
   return (
@@ -56,7 +58,17 @@ export default async function ReadPage({
         انقر أيّ كلمة لعرض معناها في المعجم.
       </p>
 
-      <ReaderText text={data.body_ar} dictMatches={dictMatches} />
+      <ReaderText
+        text={data.body_ar}
+        dictMatches={dictMatches}
+        lesson={{
+          slug: data.slug,
+          title: data.title_ar,
+          volume: data.volumeNumber,
+          unitSlug: data.unitSlug,
+        }}
+        isStaff={!!staff}
+      />
     </div>
   );
 }
