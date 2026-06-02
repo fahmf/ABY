@@ -62,8 +62,8 @@ export function DictionaryList({
         <CardHeader className="flex flex-row items-center justify-between py-4">
           <CardTitle>{title}</CardTitle>
           {entries.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => toggleAll(entries)} className="gap-2 text-muted-foreground">
-              {allSelected ? <CheckSquare className="size-4" /> : <Square className="size-4" />}
+            <Button variant="outline" size="sm" onClick={() => toggleAll(entries)} className="gap-2">
+              {allSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
               {allSelected ? "إلغاء التحديد" : "تحديد الكل"}
             </Button>
           )}
@@ -82,11 +82,18 @@ export function DictionaryList({
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <button 
-                    onClick={() => toggleSelect(e.id)} 
-                    className="text-muted-foreground hover:text-primary shrink-0"
+                  <button
+                    type="button"
+                    onClick={() => toggleSelect(e.id)}
+                    aria-pressed={isSelected}
+                    aria-label={isSelected ? "إلغاء التحديد" : "تحديد"}
+                    className={`shrink-0 rounded-md border p-1 transition-colors hover:bg-accent ${
+                      isSelected
+                        ? "border-primary/40 text-primary"
+                        : "border-input text-muted-foreground hover:text-primary"
+                    }`}
                   >
-                    {isSelected ? <CheckSquare className="size-5 text-primary" /> : <Square className="size-5" />}
+                    {isSelected ? <CheckSquare className="size-5" /> : <Square className="size-5" />}
                   </button>
                   <div className="min-w-0">
                     <p className="truncate font-naskh text-lg">{e.lemma_ar}</p>
