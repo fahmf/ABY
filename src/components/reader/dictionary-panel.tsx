@@ -27,9 +27,10 @@ export function DictionaryPanel({
   const [loading, setLoading] = React.useState(true);
   const [suggestions, setSuggestions] = React.useState<Suggestion[]>([]);
   const [analyzing, setAnalyzing] = React.useState(false);
-  const [aiError, setAiError] = React.useState<"unauthorized" | "busy" | "failed" | null>(
-    null
-  );
+  const [savedNote, setSavedNote] = React.useState(false);
+  const [aiError, setAiError] = React.useState<
+    "unauthorized" | "busy" | "failed" | "rate_limited" | null
+  >(null);
 
   React.useEffect(() => {
     let active = true;
@@ -37,6 +38,7 @@ export function DictionaryPanel({
       if (!active) return;
       setLoading(true);
       setAiError(null);
+      setSavedNote(false);
     }, 0);
     let url = `/api/dictionary?q=${encodeURIComponent(surface)}`;
     if (lemma) url += `&lemma=${encodeURIComponent(lemma)}`;
@@ -85,8 +87,11 @@ export function DictionaryPanel({
         if (r.ok && d.entry) {
           setEntry(d.entry as DictionaryEntry);
           setSuggestions([]);
+          setSavedNote(true);
         } else if (r.status === 403) {
           setAiError("unauthorized");
+        } else if (r.status === 429) {
+          setAiError("rate_limited");
         } else if (r.status === 503) {
           setAiError("busy");
         } else {
@@ -123,6 +128,11 @@ export function DictionaryPanel({
 
       {!loading && entry && (
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-6">
+          {savedNote && (
+            <p className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-muted-foreground">
+              ✓ تمّ التحليل وحُفِظ كمسوّدة — سيظهر للجميع بعد مراجعة المشرف.
+            </p>
+          )}
           {/* Morphology Info */}
           {(entry.word_type || entry.plural_ar || entry.singular_ar || entry.past_ar || entry.present_ar || entry.masdar_ar) && (
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground border-b pb-3">
@@ -260,6 +270,11 @@ export function DictionaryPanel({
             {aiError === "busy" && (
               <p className="text-sm text-muted-foreground">
                 الخادم مزدحم حاليًّا، حاول بعد قليل.
+              </p>
+            )}
+            {aiError === "rate_limited" && (
+              <p className="text-sm text-muted-foreground">
+                لقد أكثرتَ من الطلبات. انتظر قليلاً ثم حاول مجدّدًا.
               </p>
             )}
             {aiError === "failed" && (

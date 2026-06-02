@@ -196,3 +196,16 @@ export async function signOut() {
   await supabase.auth.signOut();
   redirect("/admin/login");
 }
+
+// ---------- pengaturan: buka/tutup analisis AI untuk publik ----------
+export async function setPublicAnalyze(value: boolean) {
+  await requireStaff();
+  const supabase = await createClient();
+  await supabase
+    .from("app_settings")
+    .upsert(
+      { key: "public_analyze", value, updated_at: new Date().toISOString() },
+      { onConflict: "key" }
+    );
+  revalidatePath("/admin");
+}

@@ -4,9 +4,12 @@ import {
   Eye,
   EyeOff,
   Languages,
+  Lock,
   Pencil,
   Plus,
+  Sparkles,
   Trash2,
+  Users,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { requireStaff } from "@/lib/auth";
 import { isGeminiConfigured } from "@/lib/supabase/config";
 import { listLessons, listUnits, listVolumes } from "@/lib/data/admin";
+import { getPublicAnalyze } from "@/lib/data/settings";
 import {
   createUnit,
   createVolume,
@@ -26,6 +30,7 @@ import {
   ingestLessonAction,
   fastIndexAction,
   setLessonStatus,
+  setPublicAnalyze,
 } from "./actions";
 import { FastIndexButton } from "@/components/admin/fast-index-button";
 
@@ -44,11 +49,12 @@ export default async function AdminDashboard({
   searchParams: Promise<{ ingest?: string }>;
 }) {
   await requireStaff();
-  const [{ ingest }, volumes, units, lessons] = await Promise.all([
+  const [{ ingest }, volumes, units, lessons, publicAnalyze] = await Promise.all([
     searchParams,
     listVolumes(),
     listUnits(),
     listLessons(),
+    getPublicAnalyze(),
   ]);
   const geminiOK = isGeminiConfigured();
 
@@ -104,6 +110,41 @@ export default async function AdminDashboard({
           تمّت المعالجة بنجاح.
         </div>
       )}
+
+      {/* Pengaturan: analisis AI untuk publik */}
+      <Card className="mb-6">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+          <div className="flex items-start gap-3">
+            {publicAnalyze ? (
+              <Users className="mt-0.5 size-5 shrink-0 text-primary" />
+            ) : (
+              <Lock className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+            )}
+            <div>
+              <p className="text-sm font-medium">
+                التحليل بالذكاء الاصطناعي:{" "}
+                {publicAnalyze ? "متاح للجميع" : "للمشرفين فقط"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {publicAnalyze
+                  ? "أي زائر يمكنه تحليل كلمة غير موجودة (تُحفظ كمسوّدة للمراجعة، بحدّ مُعدّل)."
+                  : "زوّار الموقع لا يمكنهم استخدام التحليل؛ فعِّله ليساهموا في إثراء المعجم."}
+              </p>
+            </div>
+          </div>
+          <form action={setPublicAnalyze.bind(null, !publicAnalyze)}>
+            <Button
+              type="submit"
+              variant={publicAnalyze ? "secondary" : "default"}
+              size="sm"
+              className="gap-1.5"
+            >
+              <Sparkles className="size-4" />
+              {publicAnalyze ? "إغلاق للعامة" : "فتح للجميع"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       {/* Lessons */}
       <Card className="mb-6">
