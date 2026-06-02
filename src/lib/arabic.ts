@@ -28,19 +28,27 @@ export function normalize(text: string): string {
 
 // Klitik depan & akhiran umum untuk heuristik pencocokan bentuk kata → lemma.
 const PREFIXES = [
-  "وال", "فال", "بال", "كال", "لل", "ال", 
-  "وس", "فس", "س", 
+  "وبال", "فبال", "وال", "فال", "بال", "كال", "لل", "ال",
+  "وس", "فس", "س",
   "و", "ف", "ب", "ك", "ل",
   "أ", "ن", "ي", "ت"
 ];
+// Disusun dari yang terpanjang agar pemotongan berlapis menjangkau lemma.
 const SUFFIXES = [
-  "تها", "هما", "كما", "هم", "كم", "نا", "ها", "ه", "ك", "ي", 
+  // ganti-nama objek/milik bersambung & akhiran fi'il (termasuk gabungan)
+  "كموها", "تموها", "تموه", "ونها", "ونهم", "وننا",
+  "تها", "هما", "كما", "تما", "ونه", "وني", "ناها", "ناه",
+  "هم", "هن", "كم", "كن", "نا", "ها", "تم", "تن", "ني",
+  "ه", "ك", "ي",
+  // akhiran jamak/mutsanna & ta marbuthah
   "ات", "ون", "ين", "ان", "وا", "ة", "ا"
 ];
 
 /**
  * Kandidat lemma yang dinormalkan untuk satu bentuk kata (surface).
- * Memakai pemotongan berlapis (rekursif) agar mendeteksi kata kompleks.
+ * Memakai pemotongan berlapis (rekursif) agar mendeteksi kata kompleks,
+ * lalu menambah varian تاء marbuthah (akhiran ت → ه) karena ة berubah jadi ت
+ * saat bersambung dengan dhamir (mis. طاقتك → طاقت → طاقه).
  */
 export function lemmaCandidates(surface: string): string[] {
   const base = normalize(surface);
@@ -49,7 +57,7 @@ export function lemmaCandidates(surface: string): string[] {
   // Fungsi rekursif untuk memotong awalan dan akhiran
   function generate(word: string) {
     if (word.length <= 2) return;
-    
+
     // Potong akhiran
     for (const s of SUFFIXES) {
       if (word.endsWith(s) && word.length - s.length >= 2) {
@@ -74,6 +82,12 @@ export function lemmaCandidates(surface: string): string[] {
   }
 
   generate(base);
+
+  // Varian تاء marbuthah: stem berakhiran ت (dari ة yang tersambung) → ه.
+  for (const c of [...out]) {
+    if (c.length >= 3 && c.endsWith("ت")) out.add(c.slice(0, -1) + "ه");
+  }
+
   return [...out].sort((a, b) => b.length - a.length);
 }
 

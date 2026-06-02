@@ -13,7 +13,7 @@ Buka **Supabase Dashboard → SQL Editor → New query**, lalu tempel & jalankan
 **semua** file di `supabase/migrations/` secara **berurutan** (0001 → 0008):
 0001 init · 0002 lemma_norm · 0003 ingest_cursor · 0004 dictionary_helpers ·
 0005 morphology · 0006 staff_approval_security · 0007 replace_lesson_tokens ·
-0008 search_trgm_indexes.
+0008 search_trgm_indexes · 0009 dictionary_suggestions.
 
 (Atau dengan Supabase CLI: `supabase db push`.)
 
