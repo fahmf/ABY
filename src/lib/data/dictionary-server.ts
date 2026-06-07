@@ -96,6 +96,46 @@ export async function lookupEntry(
 
 export type Suggestion = { lemma_ar: string; root_ar: string; meaning_ar: string };
 
+export type Sense = {
+  lemma_ar: string;
+  meaning_ar: string;
+  word_type?: string;
+  root_ar: string;
+};
+
+/**
+ * Semua مدخل منشور yang berbagi satu `lemma_norm` — dipakai panel untuk
+ * menawarkan pemilihan makna pada homograf (mis. سُوق "pasar" ↔ سَوْق مصدر ساق).
+ */
+export async function listSenses(lemmaNorm: string): Promise<Sense[]> {
+  if (!isSupabaseConfigured()) return [];
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("dictionary_entries")
+      .select("lemma_ar,meaning_ar,word_type,roots(root_ar)")
+      .eq("status", "published")
+      .eq("lemma_norm", lemmaNorm)
+      .order("lemma_ar");
+    type R = {
+      lemma_ar: string;
+      meaning_ar: string | null;
+      word_type: string | null;
+      roots: { root_ar: string } | { root_ar: string }[] | null;
+    };
+    return ((data as unknown as R[]) ?? []).map((r) => ({
+      lemma_ar: r.lemma_ar,
+      meaning_ar: r.meaning_ar ?? "",
+      word_type: r.word_type ?? undefined,
+      root_ar: Array.isArray(r.roots)
+        ? (r.roots[0]?.root_ar ?? "")
+        : (r.roots?.root_ar ?? ""),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Saran "هل تقصد؟" untuk bentuk kata yang tak ditemukan persis — kemiripan
  * trigram ber-ambang (lihat RPC suggest_dictionary). Hanya kata yang cukup

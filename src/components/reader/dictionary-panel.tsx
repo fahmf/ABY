@@ -17,6 +17,12 @@ import { StaffRetag } from "./staff-retag";
 import type { DictionaryEntry } from "@/lib/data/types";
 
 type Suggestion = { lemma_ar: string; root_ar: string; meaning_ar: string };
+type Sense = {
+  lemma_ar: string;
+  meaning_ar: string;
+  word_type?: string;
+  root_ar: string;
+};
 
 export function DictionaryPanel({
   surface,
@@ -31,6 +37,7 @@ export function DictionaryPanel({
 }) {
   const [entry, setEntry] = React.useState<DictionaryEntry | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [senses, setSenses] = React.useState<Sense[]>([]);
   const [suggestions, setSuggestions] = React.useState<Suggestion[]>([]);
   const [analyzing, setAnalyzing] = React.useState(false);
   const [savedNote, setSavedNote] = React.useState(false);
@@ -53,11 +60,13 @@ export function DictionaryPanel({
         .then((d) => {
           if (!active) return;
           setEntry(d.entry ?? null);
+          setSenses(d.senses ?? []);
           setSuggestions(d.entry ? [] : (d.suggestions ?? []));
         })
         .catch(() => {
           if (!active) return;
           setEntry(null);
+          setSenses([]);
           setSuggestions([]);
         })
         .finally(() => active && setLoading(false));
@@ -95,6 +104,7 @@ export function DictionaryPanel({
         const d = await r.json().catch(() => ({}));
         if (r.ok && d.entry) {
           setEntry(d.entry as DictionaryEntry);
+          setSenses([]);
           setSuggestions([]);
           setSavedNote(true);
         } else if (r.status === 403) {
@@ -143,6 +153,42 @@ export function DictionaryPanel({
             meaning={entry.meaning_ar}
             surface={surface}
           />
+
+          {/* Pemilih makna untuk homograf (mis. سُوق ↔ سَوْق): satu bentuk, beberapa مدخل. */}
+          {senses.length > 1 && (
+            <div className="flex flex-col gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
+              <h3 className="text-xs font-medium text-amber-700 sm:text-sm dark:text-amber-300">
+                لهذه الكلمة أكثر من معنى — اختَر المقصود:
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {senses.map((s) => {
+                  const active = s.lemma_ar === entry.lemma_ar;
+                  return (
+                    <button
+                      key={s.lemma_ar}
+                      type="button"
+                      onClick={() => !active && load(s.lemma_ar)}
+                      title={s.meaning_ar}
+                      aria-pressed={active}
+                      className={
+                        "flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors sm:text-base " +
+                        (active
+                          ? "border-primary/50 bg-primary/10 text-primary"
+                          : "hover:border-primary/40 hover:bg-accent")
+                      }
+                    >
+                      <span className="font-naskh text-base">{s.lemma_ar}</span>
+                      {s.word_type && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {s.word_type}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {savedNote && (
             <p className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/8 px-3 py-2 text-xs text-emerald-700 sm:text-sm dark:text-emerald-300">
               <Check className="size-4 shrink-0" />
