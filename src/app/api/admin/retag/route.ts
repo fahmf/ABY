@@ -46,19 +46,35 @@ export async function POST(request: Request) {
   let lemmaAr: string | null = null;
   let rootId: string | null = null;
   if (lemma) {
-    const norm = normalize(lemma);
-    const { data: entry } = await supabase
-      .from("dictionary_entries")
-      .select("lemma_ar, root_id")
-      .eq("status", "published")
-      .or(`lemma_ar.eq.${lemma},lemma_norm.eq.${norm}`)
-      .limit(1)
-      .maybeSingle();
+    type EntryRow = { lemma_ar: string; root_id: string | null };
+    // Utamakan kecocokan lemma EKSAK (berharakat) agar homograf bisa dipisah,
+    // mis. سَوْق (مصدر ساق) ↔ سُوق (السوق). Banyak lemma punya beberapa varian
+    // tasykil dengan lemma_norm sama, jadi `.or + limit(1)` lama bersifat acak.
+    let entry: EntryRow | null =
+      (
+        await supabase
+          .from("dictionary_entries")
+          .select("lemma_ar, root_id")
+          .eq("status", "published")
+          .eq("lemma_ar", lemma)
+          .limit(1)
+          .maybeSingle()
+      ).data ?? null;
+    // Jatuh ke bentuk ternormalkan (tanpa harakat) secara deterministik.
+    if (!entry) {
+      const { data: rows } = await supabase
+        .from("dictionary_entries")
+        .select("lemma_ar, root_id")
+        .eq("status", "published")
+        .eq("lemma_norm", normalize(lemma))
+        .order("lemma_ar");
+      entry = ((rows as EntryRow[] | null) ?? [])[0] ?? null;
+    }
     if (!entry) {
       return NextResponse.json({ error: "entry_not_found" }, { status: 404 });
     }
-    lemmaAr = (entry as { lemma_ar: string }).lemma_ar;
-    rootId = (entry as { root_id: string | null }).root_id ?? null;
+    lemmaAr = entry.lemma_ar;
+    rootId = entry.root_id ?? null;
   }
 
   // Token yang cocok = surface ternormalkan sama (mencakup varian tasykil).
