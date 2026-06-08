@@ -141,14 +141,25 @@ export async function listDictionaryEntries(
   status?: "draft" | "published"
 ): Promise<AdminEntry[]> {
   const supabase = await createClient();
-  const base = supabase
-    .from("dictionary_entries")
-    .select(
-      "id,lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,word_type,plural_ar,singular_ar,past_ar,present_ar,masdar_ar,status,roots(root_ar)"
-    )
-    .order("created_at", { ascending: false });
-  const { data } = status ? await base.eq("status", status) : await base;
-  return ((data as unknown as EntryRow[]) ?? []).map(mapEntry);
+  // Supabase/PostgREST caps each response at the project "Max rows" setting
+  // (1000 by default), so we page through the table in chunks to fetch every
+  // entry instead of silently dropping rows beyond the cap.
+  const PAGE_SIZE = 1000;
+  const rows: EntryRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const query = supabase
+      .from("dictionary_entries")
+      .select(
+        "id,lemma_ar,meaning_ar,synonyms_ar,antonyms_ar,examples_ar,word_type,plural_ar,singular_ar,past_ar,present_ar,masdar_ar,status,roots(root_ar)"
+      )
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    const { data } = status ? await query.eq("status", status) : await query;
+    const page = (data as unknown as EntryRow[]) ?? [];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+  return rows.map(mapEntry);
 }
 
 export async function getDictionaryEntry(id: string): Promise<AdminEntry | null> {
