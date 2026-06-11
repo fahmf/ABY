@@ -160,7 +160,19 @@ export async function getDictionaryMatches(lessonSlug: string): Promise<Record<n
   if (!isSupabaseConfigured()) return matches;
   try {
     const supabase = await createClient();
-    
+
+    // Join token↔kamus dikerjakan di DB (RPC, migrasi 0011) agar tak memuat
+    // semua token ke memori. Bila fungsi belum di-deploy, jatuh ke jalur lama.
+    const { data: rpcRows, error: rpcError } = await supabase.rpc(
+      "lesson_dictionary_matches",
+      { p_slug: lessonSlug }
+    );
+    if (!rpcError) {
+      const rows = (rpcRows as { position: number; lemma_ar: string }[]) ?? [];
+      for (const r of rows) matches[r.position] = r.lemma_ar;
+      return matches;
+    }
+
     const { data: lesson } = await supabase
       .from("lessons")
       .select("id, body_ar")

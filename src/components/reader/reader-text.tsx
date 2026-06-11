@@ -97,9 +97,13 @@ export function ReaderText({
 
   // Deep-link: #t=<position> → scroll + sorot token, lalu redam setelah jeda.
   React.useEffect(() => {
+    // Timer redam milik hash sebelumnya harus dibatalkan saat hash berganti,
+    // agar sorotan baru tak ikut dipadamkan oleh timer lama.
+    let clearDimTimer: (() => void) | undefined;
     const applyHash = () => {
       const m = window.location.hash.match(/^#t=(\d+)$/);
       if (!m) return;
+      clearDimTimer?.();
       const pos = Number(m[1]);
       setHighlighted(pos);
       const el = containerRef.current?.querySelector<HTMLElement>(
@@ -107,13 +111,13 @@ export function ReaderText({
       );
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
       const timer = window.setTimeout(() => setHighlighted(null), 2600);
-      return () => window.clearTimeout(timer);
+      clearDimTimer = () => window.clearTimeout(timer);
     };
-    const cleanup = applyHash();
+    applyHash();
     window.addEventListener("hashchange", applyHash);
     return () => {
       window.removeEventListener("hashchange", applyHash);
-      cleanup?.();
+      clearDimTimer?.();
     };
   }, []);
 

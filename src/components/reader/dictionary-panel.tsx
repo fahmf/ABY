@@ -42,28 +42,32 @@ export function DictionaryPanel({
   // efek awal & oleh tombol koreksi staff agar panel langsung tersegarkan.
   const load = React.useCallback(
     (pickedLemma?: string) => {
-      let active = true;
+      const ctrl = new AbortController();
       setLoading(true);
       setAiError(null);
       setSavedNote(false);
       let url = `/api/dictionary?q=${encodeURIComponent(surface)}`;
       if (pickedLemma) url += `&lemma=${encodeURIComponent(pickedLemma)}`;
-      fetch(url)
-        .then((r) => r.json())
+      fetch(url, { signal: ctrl.signal })
+        .then((r) => {
+          if (!r.ok) throw new Error(`dictionary_http_${r.status}`);
+          return r.json();
+        })
         .then((d) => {
-          if (!active) return;
+          if (ctrl.signal.aborted) return;
           setEntry(d.entry ?? null);
           setSuggestions(d.entry ? [] : (d.suggestions ?? []));
         })
-        .catch(() => {
-          if (!active) return;
+        .catch((err) => {
+          if (ctrl.signal.aborted) return;
+          console.error("Gagal memuat entri kamus:", err);
           setEntry(null);
           setSuggestions([]);
         })
-        .finally(() => active && setLoading(false));
-      return () => {
-        active = false;
-      };
+        .finally(() => {
+          if (!ctrl.signal.aborted) setLoading(false);
+        });
+      return () => ctrl.abort();
     },
     [surface]
   );

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { ReaderText } from "@/components/reader/reader-text";
 
@@ -45,6 +45,8 @@ describe("ReaderText", () => {
     // Judul Sheet menampilkan surface kata yang dipilih
     const titles = await screen.findAllByText("عَلَيْكُمْ");
     expect(titles.length).toBeGreaterThan(0);
+    // Tunggu fetch panel selesai agar setState tidak terjadi di luar act().
+    await waitFor(() => expect(screen.getByText(/قيد المراجعة/)).toBeDefined());
   });
 
   test("tombol perbesar font menambah kelas ukuran", () => {

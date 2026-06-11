@@ -38,10 +38,12 @@ const ENTRY: DictionaryEntry = {
 };
 
 describe("DictionaryPanel", () => {
-  test("menampilkan kata (surface) sebagai judul", () => {
+  test("menampilkan kata (surface) sebagai judul", async () => {
     stubFetch(null);
     render(<Wrapped surface="السلام" />);
     expect(screen.getAllByText("السلام").length).toBeGreaterThan(0);
+    // Tunggu fetch selesai agar setState tidak terjadi di luar act().
+    await waitFor(() => expect(screen.getByText(/قيد المراجعة/)).toBeDefined());
   });
 
   test("menampilkan akar & makna saat entri ditemukan", async () => {
@@ -68,7 +70,7 @@ describe("DictionaryPanel", () => {
     );
   });
 
-  test("memanggil API dictionary dengan query ter-encode", () => {
+  test("memanggil API dictionary dengan query ter-encode", async () => {
     const f = mock(async () =>
       new Response(JSON.stringify({ entry: null }), {
         headers: { "content-type": "application/json" },
@@ -76,7 +78,8 @@ describe("DictionaryPanel", () => {
     );
     globalThis.fetch = f as unknown as typeof fetch;
     render(<Wrapped surface="بيت" />);
-    expect(f).toHaveBeenCalled();
+    // Fetch ditunda satu macrotask oleh panel — tunggu sampai terpanggil.
+    await waitFor(() => expect(f).toHaveBeenCalled());
     const firstCall = f.mock.calls[0] as unknown as [string];
     expect(String(firstCall[0])).toContain("/api/dictionary?q=");
   });

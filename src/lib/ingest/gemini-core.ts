@@ -103,6 +103,37 @@ export function geminiModels(): string[] {
   return modelChain();
 }
 
+/**
+ * Respons Gemini kosong / bukan JSON valid. Bukan galat transien — mencoba
+ * ulang otomatis hanya membakar kuota, jadi langsung dilempar ke pemanggil
+ * (pipeline menyimpan kursor; pengguna bisa menekan "معالجة" lagi).
+ */
+export class GeminiParseError extends Error {}
+
+function parseEntries(text: string | undefined, model: string): GeminiEntry[] {
+  if (!text) {
+    throw new GeminiParseError(`Gemini (${model}) mengembalikan respons kosong.`);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    console.error(
+      `Respons Gemini (${model}) bukan JSON valid (kemungkinan terpotong):`,
+      text.slice(0, 200)
+    );
+    throw new GeminiParseError(`Gemini (${model}) mengembalikan JSON tak valid.`);
+  }
+  if (!Array.isArray(parsed)) {
+    console.error(
+      `Respons Gemini (${model}) bukan array:`,
+      JSON.stringify(parsed).slice(0, 200)
+    );
+    throw new GeminiParseError(`Gemini (${model}) mengembalikan bentuk tak terduga.`);
+  }
+  return parsed as GeminiEntry[];
+}
+
 /** Panggil Gemini untuk sekumpulan kata (satu batch).
  *  opts.models: paksa urutan model tertentu (mis. untuk round-robin antar
  *  bucket RPM); bila kosong, pakai rantai default dari env. */
@@ -135,15 +166,9 @@ export async function generateEntries(
           },
         });
 
-        const text = res.text;
-        if (!text) return [];
-        try {
-          const parsed = JSON.parse(text) as GeminiEntry[];
-          return Array.isArray(parsed) ? parsed : [];
-        } catch {
-          return [];
-        }
+        return parseEntries(res.text, model);
       } catch (err) {
+        if (err instanceof GeminiParseError) throw err;
         lastErr = err;
         const status = statusOf(err);
         // Error non-transien: percuma diulang, lempar langsung.

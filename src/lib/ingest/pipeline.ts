@@ -1,6 +1,7 @@
 import "server-only";
 
 import { normalize, tokenize } from "@/lib/arabic";
+import type { DictionaryExampleRow } from "@/lib/data/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_GEMINI_MODEL, generateEntries, isGeminiConfigured } from "./gemini";
 import { chunk, rootKey, uniqueWords } from "./text";
@@ -116,10 +117,14 @@ export async function ingestLesson(lessonId: string): Promise<IngestResult> {
       );
       newRoots += [...rootRows.keys()].filter((k) => !existing.has(k)).length;
 
-      await supabase.from("roots").upsert(
+      // Galat upsert harus menghentikan batch — kalau tidak, token bisa
+      // menunjuk lemma/akar yang entrinya tak pernah tersimpan, sementara
+      // kursor terlanjur maju.
+      const { error: rootsErr } = await supabase.from("roots").upsert(
         [...rootRows].map(([normalized, root_ar]) => ({ normalized, root_ar })),
         { onConflict: "normalized", ignoreDuplicates: true }
       );
+      if (rootsErr) throw rootsErr;
       const { data: roots } = await supabase
         .from("roots")
         .select("id,normalized")
@@ -137,7 +142,7 @@ export async function ingestLesson(lessonId: string): Promise<IngestResult> {
       meaning_ar: e.meaning ?? "",
       synonyms_ar: e.synonyms ?? [],
       antonyms_ar: e.antonyms ?? [],
-      examples_ar: (e.examples ?? []).map((text) => ({ text })),
+      examples_ar: (e.examples ?? []).map((text): DictionaryExampleRow => ({ text })),
       word_type: e.word_type ?? null,
       plural_ar: e.plural_ar ?? null,
       singular_ar: e.singular_ar ?? null,
@@ -158,22 +163,24 @@ export async function ingestLesson(lessonId: string): Promise<IngestResult> {
       );
       newEntries += lemmas.filter((l) => !existing.has(l)).length;
 
-      await supabase
+      const { error: dictErr } = await supabase
         .from("dictionary_entries")
         .upsert(dictRows, { onConflict: "lemma_ar", ignoreDuplicates: true });
+      if (dictErr) throw dictErr;
     }
 
     // 3) Isi lemma/akar pada token-token kata batch ini (idempoten).
     for (const e of entries) {
       const ids = tokenIdsByNorm.get(normalize(e.word));
       if (!ids || ids.length === 0) continue;
-      await supabase
+      const { error: tokErr } = await supabase
         .from("tokens")
         .update({
           lemma_ar: e.lemma.trim(),
           root_id: rootMap.get(rootKey(e.root)) ?? null,
         })
         .in("id", ids);
+      if (tokErr) throw tokErr;
     }
 
     // 4) Simpan kemajuan: batch ini selesai → kursor menunjuk batch berikutnya.

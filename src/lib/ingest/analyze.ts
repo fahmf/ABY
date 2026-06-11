@@ -2,7 +2,7 @@ import "server-only";
 
 import { normalize } from "@/lib/arabic";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { DictionaryEntry } from "@/lib/data/types";
+import type { DictionaryEntry, DictionaryExampleRow } from "@/lib/data/types";
 import { DEFAULT_GEMINI_MODEL, generateEntries, isGeminiConfigured } from "./gemini";
 import { rootKey } from "./text";
 
@@ -49,7 +49,7 @@ export async function analyzeWord(word: string): Promise<DictionaryEntry | null>
         meaning_ar: e.meaning ?? "",
         synonyms_ar: e.synonyms ?? [],
         antonyms_ar: e.antonyms ?? [],
-        examples_ar: (e.examples ?? []).map((text) => ({ text })),
+        examples_ar: (e.examples ?? []).map((text): DictionaryExampleRow => ({ text })),
         word_type: e.word_type ?? null,
         plural_ar: e.plural_ar ?? null,
         singular_ar: e.singular_ar ?? null,
