@@ -10,11 +10,25 @@ export const maxDuration = 60;
 // Batas untuk mode publik: maksimum permintaan per IP dalam jendela waktu.
 const RATE_MAX = 30;
 const RATE_WINDOW_MS = 60 * 60 * 1000; // 1 jam
+const MAX_QUERY_LEN = 80; // satu kata Arab; cegah payload besar menyentuh Gemini.
 
+/**
+ * IP klien untuk rate-limit. Di belakang reverse proxy tepercaya (mis. Vercel),
+ * `x-real-ip` di-set oleh platform ke IP peer sebenarnya dan menimpa nilai yang
+ * dikirim klien — jadi itu paling tepercaya. Untuk `x-forwarded-for`, proxy
+ * menambahkan IP klien di UJUNG rantai; ambil entri terakhir, bukan yang pertama
+ * (yang mudah dipalsukan klien dengan menyuntik header sendiri) agar putar-IP
+ * tak melewati batas.
+ */
 function clientIp(request: Request): string {
+  const real = request.headers.get("x-real-ip")?.trim();
+  if (real) return real;
   const xff = request.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim();
-  return request.headers.get("x-real-ip")?.trim() || "unknown";
+  if (xff) {
+    const ips = xff.split(",").map((s) => s.trim()).filter(Boolean);
+    if (ips.length > 0) return ips[ips.length - 1];
+  }
+  return "unknown";
 }
 
 /** True bila IP melebihi kuota (mode publik). Memakai service-role (lewati RLS). */
@@ -44,7 +58,7 @@ async function isRateLimited(ip: string): Promise<boolean> {
 // menyala (dengan rate-limit per IP).
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams.get("q")?.trim();
-  if (!q) {
+  if (!q || q.length > MAX_QUERY_LEN) {
     return NextResponse.json({ entry: null, error: "no_query" }, { status: 400 });
   }
 

@@ -137,6 +137,131 @@ export async function getDictionaryStats(): Promise<AdminStats> {
   };
 }
 
+// ---------- laporan kualitas kamus ----------
+export type EntryIssue =
+  | "no_meaning"
+  | "no_root"
+  | "no_examples"
+  | "no_synonyms"
+  | "no_morphology";
+
+export type FlaggedEntry = {
+  id: string;
+  lemma_ar: string;
+  status: "draft" | "published";
+  issues: EntryIssue[];
+};
+
+export type DictionaryQuality = {
+  total: number;
+  counts: Record<EntryIssue, number>;
+  /** Mداخل منشورة yang masih punya masalah serius (tanpa makna/akar). */
+  publishedWithIssues: number;
+  /** Entri bermasalah (terbanyak masalah dulu), dibatasi untuk UI. */
+  flagged: FlaggedEntry[];
+  /** Draft tertua yang menunggu peninjauan. */
+  oldestDrafts: { id: string; lemma_ar: string; created_at: string }[];
+};
+
+type QualityRow = {
+  id: string;
+  lemma_ar: string;
+  meaning_ar: string | null;
+  root_id: string | null;
+  synonyms_ar: unknown;
+  antonyms_ar: unknown;
+  examples_ar: unknown;
+  word_type: string | null;
+  plural_ar: string | null;
+  singular_ar: string | null;
+  past_ar: string | null;
+  present_ar: string | null;
+  masdar_ar: string | null;
+  status: "draft" | "published";
+  created_at: string;
+};
+
+function jsonLen(v: unknown): number {
+  return Array.isArray(v) ? v.length : 0;
+}
+
+function entryIssues(r: QualityRow): EntryIssue[] {
+  const issues: EntryIssue[] = [];
+  if (!(r.meaning_ar ?? "").trim()) issues.push("no_meaning");
+  if (!r.root_id) issues.push("no_root");
+  if (jsonLen(r.examples_ar) === 0) issues.push("no_examples");
+  if (jsonLen(r.synonyms_ar) === 0) issues.push("no_synonyms");
+  const hasMorph =
+    r.word_type ||
+    r.plural_ar ||
+    r.singular_ar ||
+    r.past_ar ||
+    r.present_ar ||
+    r.masdar_ar;
+  if (!hasMorph) issues.push("no_morphology");
+  return issues;
+}
+
+/**
+ * Laporan kualitas kamus untuk dasbor admin. Mengambil kolom ringkas semua
+ * entri (korpus terbatas) lalu menghitung indikator masalah di memori:
+ * makna/akar/contoh/مرادفات/صرف yang hilang, plus draft tertua.
+ */
+export async function getDictionaryQuality(limit = 50): Promise<DictionaryQuality> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("dictionary_entries")
+    .select(
+      "id,lemma_ar,meaning_ar,root_id,synonyms_ar,antonyms_ar,examples_ar,word_type,plural_ar,singular_ar,past_ar,present_ar,masdar_ar,status,created_at"
+    )
+    .order("created_at", { ascending: true });
+
+  const rows = (data as unknown as QualityRow[]) ?? [];
+  const counts: Record<EntryIssue, number> = {
+    no_meaning: 0,
+    no_root: 0,
+    no_examples: 0,
+    no_synonyms: 0,
+    no_morphology: 0,
+  };
+  let publishedWithIssues = 0;
+  const flagged: FlaggedEntry[] = [];
+
+  for (const r of rows) {
+    const issues = entryIssues(r);
+    for (const it of issues) counts[it] += 1;
+    if (
+      r.status === "published" &&
+      (issues.includes("no_meaning") || issues.includes("no_root"))
+    ) {
+      publishedWithIssues += 1;
+    }
+    if (issues.length > 0) {
+      flagged.push({ id: r.id, lemma_ar: r.lemma_ar, status: r.status, issues });
+    }
+  }
+
+  // Masalah terbanyak dulu; منشور yang bermasalah diprioritaskan.
+  flagged.sort((a, b) => {
+    const sev = (e: FlaggedEntry) =>
+      (e.status === "published" ? 100 : 0) + e.issues.length;
+    return sev(b) - sev(a);
+  });
+
+  const oldestDrafts = rows
+    .filter((r) => r.status === "draft")
+    .slice(0, 10)
+    .map((r) => ({ id: r.id, lemma_ar: r.lemma_ar, created_at: r.created_at }));
+
+  return {
+    total: rows.length,
+    counts,
+    publishedWithIssues,
+    flagged: flagged.slice(0, limit),
+    oldestDrafts,
+  };
+}
+
 export async function listDictionaryEntries(
   status?: "draft" | "published"
 ): Promise<AdminEntry[]> {

@@ -1,5 +1,13 @@
 // Service worker ABY — cache app shell & strategi runtime sederhana.
-const CACHE = "aby-v4";
+const CACHE = "aby-v5";
+
+// Boleh-kah respons ini disimpan ke cache? Hormati Cache-Control dari server
+// (no-store/no-cache) & hanya simpan respons sukses yang bukan parsial.
+function isCacheable(res) {
+  if (!res || !res.ok || res.status === 206) return false;
+  const cc = res.headers.get("Cache-Control") || "";
+  return !/\bno-store\b|\bno-cache\b/i.test(cc);
+}
 const APP_SHELL = [
   "/",
   "/cari",
@@ -41,8 +49,10 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(request, copy));
+          if (isCacheable(res)) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(request, copy));
+          }
           return res;
         })
         .catch(() => caches.match(request))
@@ -57,8 +67,10 @@ self.addEventListener("fetch", (event) => {
     caches.match(request).then((cached) => {
       const network = fetch(request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(request, copy));
+          if (isCacheable(res)) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(request, copy));
+          }
           return res;
         })
         .catch(() => cached || caches.match("/"));
