@@ -11,7 +11,9 @@ import {
 import { getVolumes } from "@/lib/data/repository";
 import { ContinueReading } from "@/components/learner/continue-reading";
 
-export const dynamic = "force-dynamic";
+// ISR: daftar jilid jarang berubah — cache & segarkan tiap jam agar halaman
+// depan tersaji dari edge (instan) alih-alih query DB tiap kunjungan.
+export const revalidate = 3600;
 
 const VOLUME_TITLES: Record<number, string> = {
   1: "الكتاب الأول",

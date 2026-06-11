@@ -8,7 +8,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LessonQuiz } from "@/components/reader/lesson-quiz";
 import { getLesson, getLessonVocabulary } from "@/lib/data/repository";
 
-export const dynamic = "force-dynamic";
+// ISR: kosakata pelajaran berubah hanya saat kamus diperbarui — cache & segarkan
+// tiap jam agar halaman kuis tak query DB lintas-region tiap kunjungan.
+export const revalidate = 3600;
 
 export async function generateMetadata({
   params,
