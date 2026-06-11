@@ -7,6 +7,7 @@ import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ingestLesson } from "@/lib/ingest/pipeline";
 import { fastIndexLesson } from "@/lib/ingest/fast-index";
+import { refreshMeanings, resetMeaningRefresh } from "@/lib/ingest/refresh-meanings";
 
 function str(form: FormData, key: string): string {
   return String(form.get(key) ?? "").trim();
@@ -124,6 +125,37 @@ export async function fastIndexAction(id: string) {
   revalidatePath("/admin");
   revalidatePath("/admin/dictionary");
   redirect(`/admin?${params}`);
+}
+
+// ---------- penyederhanaan makna massal (tabsîth) ----------
+export async function refreshMeaningsAction() {
+  await requireStaff();
+  let params: URLSearchParams;
+  try {
+    const r = await refreshMeanings();
+    params = new URLSearchParams({
+      refresh: r.done ? "ok" : (r.reason ?? "failed"),
+      ru: String(r.updated),
+      rr: String(r.remaining),
+      rt: String(r.total),
+    });
+  } catch (err) {
+    const status =
+      (err as { status?: number; code?: number })?.status ??
+      (err as { status?: number; code?: number })?.code;
+    const reason = status === 503 || status === 429 ? "busy" : "failed";
+    redirect(`/admin/dictionary/quality?refresh=${reason}`);
+  }
+  revalidatePath("/admin/dictionary");
+  revalidatePath("/admin/dictionary/quality");
+  redirect(`/admin/dictionary/quality?${params}`);
+}
+
+export async function resetMeaningRefreshAction() {
+  await requireStaff();
+  await resetMeaningRefresh();
+  revalidatePath("/admin/dictionary/quality");
+  redirect("/admin/dictionary/quality?refresh=reset");
 }
 
 // ---------- verifikasi kamus ----------

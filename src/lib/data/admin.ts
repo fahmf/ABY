@@ -262,6 +262,29 @@ export async function getDictionaryQuality(limit = 50): Promise<DictionaryQualit
   };
 }
 
+// ---------- kemajuan penyederhanaan makna (tabsîth) ----------
+export type MeaningRefreshProgress = {
+  total: number;
+  refreshed: number;
+  remaining: number;
+};
+
+/** Berapa entri sudah/belum disegarkan maknanya (penanda meaning_refreshed_at). */
+export async function getMeaningRefreshProgress(): Promise<MeaningRefreshProgress> {
+  const supabase = await createClient();
+  const head = { count: "exact" as const, head: true };
+  const [total, remaining] = await Promise.all([
+    supabase.from("dictionary_entries").select("*", head),
+    supabase
+      .from("dictionary_entries")
+      .select("*", head)
+      .is("meaning_refreshed_at", null),
+  ]);
+  const t = total.count ?? 0;
+  const r = remaining.count ?? 0;
+  return { total: t, refreshed: t - r, remaining: r };
+}
+
 export async function listDictionaryEntries(
   status?: "draft" | "published"
 ): Promise<AdminEntry[]> {

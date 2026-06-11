@@ -1,13 +1,31 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Clock, Pencil } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  Pencil,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RefreshMeaningsButton } from "@/components/admin/refresh-meanings-button";
+import { SubmitIconButton } from "@/components/admin/submit-icon-button";
 import { requireStaff } from "@/lib/auth";
-import { getDictionaryQuality, type EntryIssue } from "@/lib/data/admin";
+import { isGeminiConfigured } from "@/lib/supabase/config";
+import {
+  getDictionaryQuality,
+  getMeaningRefreshProgress,
+  type EntryIssue,
+} from "@/lib/data/admin";
+import { refreshMeaningsAction, resetMeaningRefreshAction } from "../../actions";
 
 export const dynamic = "force-dynamic";
+// Penyederhanaan makna memanggil Gemini per batch → bisa lama; beri tenggang.
+export const maxDuration = 300;
 
 const ISSUE_LABEL: Record<EntryIssue, string> = {
   no_meaning: "بلا معنى",
@@ -20,9 +38,22 @@ const ISSUE_LABEL: Record<EntryIssue, string> = {
 // Masalah serius (منشور بها مشكلة) ditandai merah; sisanya kuning.
 const SEVERE: EntryIssue[] = ["no_meaning", "no_root"];
 
-export default async function DictionaryQualityPage() {
+export default async function DictionaryQualityPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ refresh?: string; ru?: string; rr?: string }>;
+}) {
   await requireStaff();
-  const q = await getDictionaryQuality();
+  const [sp, q, refresh] = await Promise.all([
+    searchParams,
+    getDictionaryQuality(),
+    getMeaningRefreshProgress(),
+  ]);
+  const geminiOK = isGeminiConfigured();
+  const pct =
+    refresh.total > 0
+      ? Math.round((refresh.refreshed / refresh.total) * 100)
+      : 0;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
@@ -36,6 +67,92 @@ export default async function DictionaryQualityPage() {
       <p className="mb-6 text-sm text-muted-foreground">
         مؤشّرات نقص المداخل — أكمِلها لرفع جودة المحتوى المنشور.
       </p>
+
+      {/* Notifikasi hasil penyederhanaan makna */}
+      {sp.refresh === "ok" && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/8 p-4 text-sm">
+          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-500" />
+          <p className="text-muted-foreground">
+            اكتمل تبسيط المعاني لكلّ المداخل
+            {sp.ru ? <> (حُدِّث {sp.ru} مدخلًا في هذه الجولة)</> : null}.
+          </p>
+        </div>
+      )}
+      {(sp.refresh === "busy" || sp.refresh === "failed") && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/8 p-4 text-sm">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-500" />
+          <p className="text-muted-foreground">
+            {sp.refresh === "busy"
+              ? "خادم الذكاء الاصطناعي مزدحم حاليًّا."
+              : "توقّفت العملية قبل اكتمالها."}{" "}
+            {sp.ru ? <>حُدِّث {sp.ru} مدخلًا</> : null}
+            {sp.rr ? <> وتبقّى {sp.rr}</> : null}. التقدّم محفوظ — اضغط «متابعة»
+            للإكمال من حيث توقّف.
+          </p>
+        </div>
+      )}
+      {sp.refresh === "reset" && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
+          <RotateCcw className="mt-0.5 size-5 shrink-0 text-primary" />
+          <p className="text-muted-foreground">
+            أُعيد تعيين كلّ المداخل لإعادة التبسيط من جديد.
+          </p>
+        </div>
+      )}
+
+      {/* Penyederhanaan makna massal (tabsîth) */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Sparkles className="size-4 text-primary" />
+            تبسيط المعاني للمبتدئين
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">
+            يُعيد توليد المعنى والمرادفات والأمثلة لكلّ مدخل بأسلوب بسيط يفهمه
+            المبتدئ (لا يغيّر الجذر ولا حالة النشر). العملية تدريجيّة وقابلة
+            للاستئناف.
+          </p>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {refresh.refreshed} / {refresh.total} مدخلًا مُبسَّط ({pct}%)
+            {refresh.remaining > 0 && <> — تبقّى {refresh.remaining}</>}
+          </p>
+          {!geminiOK && (
+            <p className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="size-3.5" />
+              GEMINI_API_KEY غير مضبوط — التبسيط معطّل.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <form action={refreshMeaningsAction}>
+              <RefreshMeaningsButton
+                disabled={!geminiOK || refresh.remaining === 0}
+                label={
+                  refresh.remaining === 0
+                    ? "اكتمل التبسيط"
+                    : refresh.refreshed > 0
+                      ? "متابعة التبسيط"
+                      : "ابدأ تبسيط المعاني"
+                }
+              />
+            </form>
+            {refresh.refreshed > 0 && (
+              <form action={resetMeaningRefreshAction}>
+                <SubmitIconButton title="إعادة تعيين (تبسيط الكلّ من جديد)">
+                  <RotateCcw className="size-4" />
+                </SubmitIconButton>
+              </form>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Ringkasan indikator */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
