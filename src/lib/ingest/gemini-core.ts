@@ -196,3 +196,85 @@ export async function generateEntries(
 
   throw lastErr ?? new Error("Gagal memanggil Gemini.");
 }
+
+// ===================== Soal pemahaman teks =====================
+
+export type GeneratedQuestion = {
+  type: "mcq" | "truefalse";
+  prompt: string;
+  options: string[];
+  answer: number; // indeks jawaban benar dalam options
+  explanation?: string;
+};
+
+const QUESTION_SCHEMA = {
+  type: Type.ARRAY,
+  items: {
+    type: Type.OBJECT,
+    properties: {
+      type: { type: Type.STRING }, // "mcq" | "truefalse"
+      prompt: { type: Type.STRING },
+      options: { type: Type.ARRAY, items: { type: Type.STRING } },
+      answer: { type: Type.INTEGER },
+      explanation: { type: Type.STRING },
+    },
+    required: ["type", "prompt", "options", "answer"],
+    propertyOrdering: ["type", "prompt", "options", "answer", "explanation"],
+  },
+};
+
+const QUESTION_SYSTEM =
+  "أنت معلّم عربية للناطقين بغيرها (مستوى «العربية بين يديك»). اقرأ النصّ التالي " +
+  "وأنشئ من 5 إلى 8 أسئلةٍ تقيس فهم الطالب لمضمون النصّ (لا لمعاني المفردات فقط). " +
+  "اجعل الأسئلة والخيارات بعربيةٍ بسيطةٍ يفهمها المبتدئ، وكلّ سؤالٍ تكون إجابته " +
+  "مستخرجةً من النصّ صراحةً (لا تتطلّب معلوماتٍ خارجيّة). " +
+  "نوّع بين نوعين: " +
+  "type=\"mcq\" (اختيار من متعدّد): options أربعة خياراتٍ مختلفةٍ معقولة، " +
+  "answer رقم فهرس الخيار الصحيح (يبدأ من 0). " +
+  "type=\"truefalse\" (صح أو خطأ): options دائمًا [\"صحيح\", \"خطأ\"]، " +
+  "answer=0 إن كانت العبارة صحيحةً و1 إن كانت خاطئة. " +
+  "explanation: جملةٌ قصيرةٌ تبرّر الإجابة بالاستناد إلى النصّ. " +
+  "أعِد JSON فقط بالعربية دون أيّ شرحٍ إضافيّ.";
+
+/** Hasilkan soal pemahaman dari teks pelajaran (satu panggilan Gemini). */
+export async function generateQuestions(
+  text: string,
+  opts?: { models?: string[] }
+): Promise<GeneratedQuestion[]> {
+  if (!isGeminiConfigured()) {
+    throw new Error("GEMINI_API_KEY belum dikonfigurasi.");
+  }
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+  const models = opts?.models?.length ? opts.models : modelChain();
+  const maxAttempts = 4;
+
+  let lastErr: unknown;
+  for (const model of models) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const res = await ai.models.generateContent({
+          model,
+          contents: `${QUESTION_SYSTEM}\n\nالنصّ:\n${text}`,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: QUESTION_SCHEMA,
+            temperature: 0.4,
+            maxOutputTokens: 8192,
+          },
+        });
+        const parsed = parseEntries(res.text, model) as unknown as GeneratedQuestion[];
+        return parsed;
+      } catch (err) {
+        if (err instanceof GeminiParseError) throw err;
+        lastErr = err;
+        const status = statusOf(err);
+        if (status !== undefined && !RETRYABLE.has(status)) throw err;
+        if (attempt === maxAttempts) break;
+        const delay = 2 ** (attempt - 1) * 2000 + Math.random() * 500;
+        await sleep(delay);
+      }
+    }
+  }
+
+  throw lastErr ?? new Error("Gagal memanggil Gemini.");
+}

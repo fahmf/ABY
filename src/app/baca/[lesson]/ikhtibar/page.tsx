@@ -5,8 +5,12 @@ import { ArrowRight, GraduationCap } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { LessonQuiz } from "@/components/reader/lesson-quiz";
-import { getLesson, getLessonVocabulary } from "@/lib/data/repository";
+import { LessonAssessment } from "@/components/reader/lesson-assessment";
+import {
+  getLesson,
+  getLessonQuestions,
+  getLessonVocabulary,
+} from "@/lib/data/repository";
 
 // ISR: kosakata pelajaran berubah hanya saat kamus diperbarui — cache & segarkan
 // tiap jam agar halaman kuis tak query DB lintas-region tiap kunjungan.
@@ -32,7 +36,12 @@ export default async function QuizPage({
   const data = await getLesson(decoded);
   if (!data) notFound();
 
-  const vocab = await getLessonVocabulary(data.slug);
+  const [vocab, questions] = await Promise.all([
+    getLessonVocabulary(data.slug),
+    getLessonQuestions(data.slug),
+  ]);
+
+  const hasAnything = vocab.length >= 4 || questions.length > 0;
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10 sm:px-6">
@@ -48,15 +57,19 @@ export default async function QuizPage({
         اختبر نفسك
       </h1>
 
-      {vocab.length < 4 ? (
+      {hasAnything ? (
+        <LessonAssessment
+          vocab={vocab}
+          questions={questions}
+          lessonSlug={data.slug}
+        />
+      ) : (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            لا توجد كلماتٌ كافية في هذا النصّ لإنشاء اختبار بعد. عُد لاحقًا بعد
-            إثراء المعجم.
+            لا توجد كلماتٌ كافية أو أسئلةٌ لهذا النصّ بعد. عُد لاحقًا بعد إثراء
+            المحتوى.
           </CardContent>
         </Card>
-      ) : (
-        <LessonQuiz vocab={vocab} lessonSlug={data.slug} />
       )}
     </div>
   );

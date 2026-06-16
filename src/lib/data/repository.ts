@@ -267,6 +267,57 @@ export async function getLessonVocabulary(
   }
 }
 
+export type ComprehensionQuestion = {
+  type: "mcq" | "truefalse";
+  prompt: string;
+  options: string[];
+  answer: number;
+  explanation: string | null;
+};
+
+/** Soal pemahaman (published) sebuah pelajaran, urut sesuai sort_order. */
+export async function getLessonQuestions(
+  lessonSlug: string
+): Promise<ComprehensionQuestion[]> {
+  if (!isSupabaseConfigured()) return [];
+  try {
+    const supabase = await createClient();
+    const { data: lesson } = await supabase
+      .from("lessons")
+      .select("id")
+      .eq("slug", lessonSlug)
+      .maybeSingle();
+    if (!lesson) return [];
+
+    const { data } = await supabase
+      .from("lesson_questions")
+      .select("type,prompt,options,answer,explanation")
+      .eq("lesson_id", (lesson as { id: string }).id)
+      .eq("status", "published")
+      .order("sort_order", { ascending: true });
+
+    const rows =
+      (data as unknown as {
+        type: "mcq" | "truefalse";
+        prompt: string;
+        options: unknown;
+        answer: number;
+        explanation: string | null;
+      }[]) ?? [];
+    return rows.map((r) => ({
+      type: r.type,
+      prompt: r.prompt,
+      options: Array.isArray(r.options)
+        ? r.options.filter((o): o is string => typeof o === "string")
+        : [],
+      answer: r.answer,
+      explanation: r.explanation,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // ---------- bentuk baris hasil join Supabase ----------
 type UnitRow = {
   slug: string;

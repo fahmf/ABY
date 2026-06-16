@@ -34,10 +34,12 @@ import {
   deleteLesson,
   ingestLessonAction,
   fastIndexAction,
+  generateQuestionsAction,
   setLessonStatus,
   setPublicAnalyze,
 } from "./actions";
 import { FastIndexButton } from "@/components/admin/fast-index-button";
+import { GenerateQuizButton } from "@/components/admin/generate-quiz-button";
 
 export const dynamic = "force-dynamic";
 // Pipeline ingest (Gemini) bisa berjalan lama; beri tenggang waktu lebih besar.
@@ -177,9 +179,18 @@ export default async function AdminDashboard({
           <Sparkles className="mt-0.5 size-5 shrink-0 text-emerald-500" />
           <div className="space-y-1">
             <p className="font-medium text-foreground">
-              {mode === "fast" ? "اكتملت الفهرسة السريعة" : "اكتملت المعالجة بنجاح"}
+              {mode === "fast"
+                ? "اكتملت الفهرسة السريعة"
+                : mode === "quiz"
+                  ? "تمّ توليد أسئلة الفهم"
+                  : "اكتملت المعالجة بنجاح"}
             </p>
-            {hasCounts && Number.isFinite(totalW) ? (
+            {mode === "quiz" ? (
+              <p className="text-muted-foreground">
+                أُنشئت <span className="font-semibold text-foreground">{recorded}</span> أسئلةٍ
+                لقياس فهم النصّ (منشورة مباشرةً).
+              </p>
+            ) : hasCounts && Number.isFinite(totalW) ? (
               <p className="text-muted-foreground">
                 {mode === "fast" ? (
                   <>
@@ -289,6 +300,9 @@ export default async function AdminDashboard({
                 </form>
                 <form action={ingestLessonAction.bind(null, l.id)}>
                   <IngestButton disabled={!geminiOK} />
+                </form>
+                <form action={generateQuestionsAction.bind(null, l.id)}>
+                  <GenerateQuizButton disabled={!geminiOK} />
                 </form>
                 <Button asChild variant="ghost" size="icon" title="تعديل">
                   <Link href={`/admin/lessons/${l.id}`}>
