@@ -10,17 +10,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { learner } from "@/lib/learner/store";
 import type { VocabItem } from "@/lib/data/repository";
 
-export type QType = "meaning" | "reverse" | "root";
+export type QType = "meaning" | "reverse";
 
 export type Question = {
   type: QType;
   word: VocabItem; // kata sumber (untuk simpan jawaban salah)
-  promptLabel: string; // instruksi: "ما معنى" / "أيُّ كلمةٍ تعني" / "ما جذر"
+  promptLabel: string; // instruksi: "ما معنى" / "أيُّ كلمةٍ تعني"
   prompt: string; // yang ditampilkan besar
-  rootBadge?: string; // tampil sbg badge akar (soal berbasis kata)
+  rootBadge?: string; // tampil sbg badge akar (petunjuk, bukan soal)
   options: string[]; // pilihan; salah satunya benar
   answer: number;
-  optionFont: "naskh" | "default"; // pilihan kata/akar pakai naskh
+  optionFont: "naskh" | "default"; // pilihan kata pakai naskh
 };
 
 const MAX_Q = 10;
@@ -28,7 +28,6 @@ const MAX_Q = 10;
 const TYPE_LABEL: Record<QType, string> = {
   meaning: "معنى",
   reverse: "كلمة",
-  root: "جذر",
 };
 
 function shuffle<T>(arr: T[]): T[] {
@@ -59,12 +58,10 @@ function distinct(pool: string[], exclude: string, n: number): string[] {
  * sesuai ketersediaan pengecoh (distractor) agar selalu ada 4 pilihan unik:
  *  - meaning : tampilkan الكلمة → pilih المعنى
  *  - reverse : tampilkan المعنى → pilih الكلمة
- *  - root    : tampilkan الكلمة → pilih الجذر (butuh ≥4 جذور مختلفة)
  */
 export function buildQuiz(vocab: VocabItem[]): Question[] {
   const meanings = vocab.map((v) => v.meaning_ar).filter(Boolean);
   const lemmas = vocab.map((v) => v.lemma_ar).filter(Boolean);
-  const roots = [...new Set(vocab.map((v) => v.root_ar).filter(Boolean))];
 
   const pool = shuffle(vocab).slice(0, MAX_Q);
   const questions: Question[] = [];
@@ -73,11 +70,6 @@ export function buildQuiz(vocab: VocabItem[]): Question[] {
     const feasible: QType[] = [];
     if (distinct(meanings, word.meaning_ar, 3).length === 3) feasible.push("meaning");
     if (distinct(lemmas, word.lemma_ar, 3).length === 3) feasible.push("reverse");
-    if (
-      word.root_ar &&
-      roots.filter((r) => r !== word.root_ar).length >= 3
-    )
-      feasible.push("root");
 
     if (feasible.length === 0) continue;
     const type = feasible[Math.floor(Math.random() * feasible.length)];
@@ -94,7 +86,7 @@ export function buildQuiz(vocab: VocabItem[]): Question[] {
         answer: options.indexOf(word.meaning_ar),
         optionFont: "default",
       });
-    } else if (type === "reverse") {
+    } else {
       const options = shuffle([word.lemma_ar, ...distinct(lemmas, word.lemma_ar, 3)]);
       questions.push({
         type,
@@ -103,22 +95,6 @@ export function buildQuiz(vocab: VocabItem[]): Question[] {
         prompt: word.meaning_ar,
         options,
         answer: options.indexOf(word.lemma_ar),
-        optionFont: "naskh",
-      });
-    } else {
-      const distractRoots = distinct(
-        roots.filter((r) => r !== word.root_ar),
-        word.root_ar,
-        3
-      );
-      const options = shuffle([word.root_ar, ...distractRoots]);
-      questions.push({
-        type,
-        word,
-        promptLabel: "ما جذر",
-        prompt: word.lemma_ar,
-        options,
-        answer: options.indexOf(word.root_ar),
         optionFont: "naskh",
       });
     }

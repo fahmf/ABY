@@ -29,8 +29,13 @@ describe("buildQuiz", () => {
     for (const q of buildQuiz(VOCAB)) {
       const correct = q.options[q.answer];
       if (q.type === "meaning") expect(correct).toBe(q.word.meaning_ar);
-      else if (q.type === "reverse") expect(correct).toBe(q.word.lemma_ar);
-      else expect(correct).toBe(q.word.root_ar);
+      else expect(correct).toBe(q.word.lemma_ar);
+    }
+  });
+
+  test("tidak pernah membuat soal tentang akar kata", () => {
+    for (const q of buildQuiz(VOCAB)) {
+      expect(["meaning", "reverse"]).toContain(q.type);
     }
   });
 
