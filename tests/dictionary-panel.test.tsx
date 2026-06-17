@@ -78,7 +78,8 @@ describe("DictionaryPanel", () => {
     );
     globalThis.fetch = f as unknown as typeof fetch;
     render(<Wrapped surface="بيت" />);
-    // Fetch ditunda satu macrotask oleh panel — tunggu sampai terpanggil.
+    // Panel menunda fetch satu macrotask (agar setState awal tak sinkron dalam
+    // efek), jadi tunggu pemanggilan seperti tes lainnya.
     await waitFor(() => expect(f).toHaveBeenCalled());
     const firstCall = f.mock.calls[0] as unknown as [string];
     expect(String(firstCall[0])).toContain("/api/dictionary?q=");

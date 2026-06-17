@@ -361,6 +361,85 @@ export async function listLessons(): Promise<AdminLesson[]> {
   }));
 }
 
+// ---------- audit / activity log ----------
+export type ActivityRow = {
+  id: string;
+  actor_email: string | null;
+  action: string;
+  entity: string;
+  detail: string | null;
+  created_at: string;
+};
+
+export async function listActivity(limit = 100): Promise<ActivityRow[]> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("activity_log")
+      .select("id,actor_email,action,entity,detail,created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    return (data as ActivityRow[]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+// ---------- analytics (usage_events) ----------
+export type UsageRow = { key: string; count: number };
+export type UsageStats = {
+  totalWords: number;
+  totalLessons: number;
+  topWords: UsageRow[];
+  topLessons: UsageRow[];
+  hardWords: UsageRow[]; // الأكثر خطأً في الاختبارات
+};
+
+/** Agregasi sederhana di server (cocok untuk volume kecil-menengah). */
+export async function getUsageStats(): Promise<UsageStats> {
+  const empty: UsageStats = {
+    totalWords: 0,
+    totalLessons: 0,
+    topWords: [],
+    topLessons: [],
+    hardWords: [],
+  };
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("usage_events")
+      .select("kind,ekey")
+      .order("created_at", { ascending: false })
+      .limit(5000);
+    const rows = (data as { kind: string; ekey: string }[] | null) ?? [];
+
+    const tally = (kind: string) => {
+      const m = new Map<string, number>();
+      for (const r of rows)
+        if (r.kind === kind) m.set(r.ekey, (m.get(r.ekey) ?? 0) + 1);
+      return m;
+    };
+    const top = (m: Map<string, number>, n = 10): UsageRow[] =>
+      [...m.entries()]
+        .map(([key, count]) => ({ key, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, n);
+
+    const words = tally("word");
+    const lessons = tally("lesson");
+    const hard = tally("quiz_wrong");
+    return {
+      totalWords: [...words.values()].reduce((a, b) => a + b, 0),
+      totalLessons: [...lessons.values()].reduce((a, b) => a + b, 0),
+      topWords: top(words),
+      topLessons: top(lessons),
+      hardWords: top(hard),
+    };
+  } catch {
+    return empty;
+  }
+}
+
 export async function getLessonById(id: string): Promise<AdminLesson | null> {
   const supabase = await createClient();
   const { data } = await supabase

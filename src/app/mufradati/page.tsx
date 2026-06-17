@@ -7,6 +7,9 @@ import {
   GraduationCap,
   Hash,
   Layers,
+  Minus,
+  Plus,
+  StickyNote,
   Trash2,
   Volume2,
 } from "lucide-react";
@@ -14,11 +17,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { StudyStats } from "@/components/learner/study-stats";
+import { WordNote, HIGHLIGHT_BG } from "@/components/learner/word-note";
 import {
   useLearner,
   learner,
   dueCards,
   type SavedWord,
+  type HighlightColor,
 } from "@/lib/learner/store";
 import { speak, useSpeechSupported } from "@/lib/learner/speech";
 
@@ -64,6 +70,35 @@ export default function MufradatiPage() {
         )}
       </div>
 
+      <div className="mb-6 space-y-4">
+        <StudyStats />
+        <div className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
+          <span className="text-sm font-medium">الهدف اليومي للمراجعة</span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="إنقاص الهدف"
+              disabled={state.goal <= 5}
+              onClick={() => learner.setGoal(state.goal - 5)}
+            >
+              <Minus className="size-4" />
+            </Button>
+            <span className="w-10 text-center text-lg font-bold tabular-nums">
+              {state.goal}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="زيادة الهدف"
+              onClick={() => learner.setGoal(state.goal + 5)}
+            >
+              <Plus className="size-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Filter + ringkasan */}
       <div className="mb-5 flex flex-wrap gap-2">
         <FilterTab active={filter === "all"} onClick={() => setFilter("all")}>
@@ -93,72 +128,123 @@ export default function MufradatiPage() {
         </Card>
       ) : (
         <ul className="flex flex-col gap-2">
-          {list.map((w) => {
-            const isKnown = !!state.known[w.lemma];
-            return (
-              <li
-                key={w.lemma}
-                className="flex items-start justify-between gap-3 rounded-lg border bg-card p-3"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-naskh text-xl">{w.lemma}</span>
-                    {w.root && (
-                      <Badge variant="secondary" className="gap-1">
-                        <Hash className="size-3" />
-                        {w.root}
-                      </Badge>
-                    )}
-                    {isKnown && (
-                      <Badge variant="outline" className="text-primary">
-                        أتقنتها
-                      </Badge>
-                    )}
-                  </div>
-                  {w.meaning && (
-                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                      {w.meaning}
-                    </p>
-                  )}
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  {canSpeak && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="نطق"
-                      onClick={() => speak(w.surface || w.lemma)}
-                    >
-                      <Volume2 className="size-4" />
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="أتقنتها"
-                    title="أتقنتها"
-                    onClick={() => learner.toggleKnown(w.lemma)}
-                  >
-                    <GraduationCap
-                      className={isKnown ? "size-4 text-primary" : "size-4"}
-                    />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="حذف"
-                    className="text-destructive"
-                    onClick={() => learner.remove(w.lemma)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              </li>
-            );
-          })}
+          {list.map((w) => (
+            <WordRow
+              key={w.lemma}
+              word={w}
+              isKnown={!!state.known[w.lemma]}
+              note={state.notes[w.lemma]}
+              highlight={state.highlights[w.lemma] as HighlightColor | undefined}
+              canSpeak={canSpeak}
+            />
+          ))}
         </ul>
       )}
     </div>
+  );
+}
+
+function WordRow({
+  word: w,
+  isKnown,
+  note,
+  highlight,
+  canSpeak,
+}: {
+  word: SavedWord;
+  isKnown: boolean;
+  note?: string;
+  highlight?: HighlightColor;
+  canSpeak: boolean;
+}) {
+  const [editing, setEditing] = React.useState(false);
+  return (
+    <li className="rounded-lg border bg-card p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            {highlight && (
+              <span
+                className={`size-3 rounded-full ${HIGHLIGHT_BG[highlight]}`}
+                aria-hidden
+              />
+            )}
+            <span className="font-naskh text-xl">{w.lemma}</span>
+            {w.root && (
+              <Badge variant="secondary" className="gap-1">
+                <Hash className="size-3" />
+                {w.root}
+              </Badge>
+            )}
+            {isKnown && (
+              <Badge variant="outline" className="text-primary">
+                أتقنتها
+              </Badge>
+            )}
+          </div>
+          {w.meaning && (
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+              {w.meaning}
+            </p>
+          )}
+          {note && !editing && (
+            <p className="mt-1.5 flex items-start gap-1.5 text-sm text-foreground/80">
+              <StickyNote className="mt-0.5 size-3.5 shrink-0 text-primary" />
+              {note}
+            </p>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {canSpeak && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="نطق"
+              onClick={() => speak(w.surface || w.lemma)}
+            >
+              <Volume2 className="size-4" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="ملاحظة وتظليل"
+            title="ملاحظة وتظليل"
+            aria-pressed={editing}
+            onClick={() => setEditing((v) => !v)}
+          >
+            <StickyNote
+              className={note || highlight ? "size-4 text-primary" : "size-4"}
+            />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="أتقنتها"
+            title="أتقنتها"
+            onClick={() => learner.toggleKnown(w.lemma)}
+          >
+            <GraduationCap
+              className={isKnown ? "size-4 text-primary" : "size-4"}
+            />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="حذف"
+            className="text-destructive"
+            onClick={() => learner.remove(w.lemma)}
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
+      </div>
+      {editing && (
+        <div className="mt-3">
+          <WordNote lemma={w.lemma} />
+        </div>
+      )}
+    </li>
   );
 }
 

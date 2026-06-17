@@ -8,27 +8,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { learner } from "@/lib/learner/store";
+import { track } from "@/lib/learner/track";
+import { stripDiacritics } from "@/lib/arabic";
 import type { VocabItem } from "@/lib/data/repository";
 
-export type QType = "meaning" | "reverse";
+type QKind = "meaning" | "reverse" | "cloze";
 
-export type Question = {
-  type: QType;
-  word: VocabItem; // kata sumber (untuk simpan jawaban salah)
-  promptLabel: string; // instruksi: "ما معنى" / "أيُّ كلمةٍ تعني"
-  prompt: string; // yang ditampilkan besar
-  rootBadge?: string; // tampil sbg badge akar (petunjuk, bukan soal)
-  options: string[]; // pilihan; salah satunya benar
+type Question = {
+  kind: QKind;
+  word: VocabItem;
+  prompt: string; // teks soal (lemma / makna / kalimat dengan ____)
+  hint?: string; // baris kecil tambahan (mis. الجذر)
+  options: string[];
   answer: number;
-  optionFont: "naskh" | "default"; // pilihan kata pakai naskh
 };
 
 const MAX_Q = 10;
-
-const TYPE_LABEL: Record<QType, string> = {
-  meaning: "معنى",
-  reverse: "كلمة",
-};
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -39,68 +34,85 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-/** Ambil hingga n nilai unik dari pool, kecuali `exclude`. */
-function distinct(pool: string[], exclude: string, n: number): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>([exclude]);
-  for (const v of shuffle(pool)) {
-    if (out.length >= n) break;
-    const t = v.trim();
-    if (!t || seen.has(t)) continue;
-    seen.add(t);
-    out.push(t);
-  }
-  return out;
+/** Normalisasi Arab ringan untuk mencocokkan kata dalam contoh (cloze). */
+function norm(s: string): string {
+  return stripDiacritics(s)
+    .replace(/[آأإٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[^ء-ي]/g, "");
 }
 
-/**
- * Bangun kuis campuran dari kosakata pelajaran. Tipe soal dipilih per-kata
- * sesuai ketersediaan pengecoh (distractor) agar selalu ada 4 pilihan unik:
- *  - meaning : tampilkan الكلمة → pilih المعنى
- *  - reverse : tampilkan المعنى → pilih الكلمة
- */
-export function buildQuiz(vocab: VocabItem[]): Question[] {
-  const meanings = vocab.map((v) => v.meaning_ar).filter(Boolean);
-  const lemmas = vocab.map((v) => v.lemma_ar).filter(Boolean);
-
-  const pool = shuffle(vocab).slice(0, MAX_Q);
-  const questions: Question[] = [];
-
-  for (const word of pool) {
-    const feasible: QType[] = [];
-    if (distinct(meanings, word.meaning_ar, 3).length === 3) feasible.push("meaning");
-    if (distinct(lemmas, word.lemma_ar, 3).length === 3) feasible.push("reverse");
-
-    if (feasible.length === 0) continue;
-    const type = feasible[Math.floor(Math.random() * feasible.length)];
-
-    if (type === "meaning") {
-      const options = shuffle([word.meaning_ar, ...distinct(meanings, word.meaning_ar, 3)]);
-      questions.push({
-        type,
-        word,
-        promptLabel: "ما معنى",
-        prompt: word.lemma_ar,
-        rootBadge: word.root_ar || undefined,
-        options,
-        answer: options.indexOf(word.meaning_ar),
-        optionFont: "default",
-      });
-    } else {
-      const options = shuffle([word.lemma_ar, ...distinct(lemmas, word.lemma_ar, 3)]);
-      questions.push({
-        type,
-        word,
-        promptLabel: "أيُّ كلمةٍ تعني",
-        prompt: word.meaning_ar,
-        options,
-        answer: options.indexOf(word.lemma_ar),
-        optionFont: "naskh",
-      });
+/** Ubah sebuah contoh menjadi kalimat ber-blank bila lemma muncul di dalamnya. */
+function makeCloze(example: string, lemma: string): string | null {
+  const nl = norm(lemma);
+  if (nl.length < 2) return null;
+  const parts = example.split(/(\s+)/);
+  for (let i = 0; i < parts.length; i++) {
+    if (!parts[i].trim()) continue;
+    const nt = norm(parts[i]);
+    if (nt && (nt === nl || nt.includes(nl) || nl.includes(nt))) {
+      const copy = [...parts];
+      copy[i] = parts[i].replace(/[ء-يً-ْـ]+/, "____");
+      return copy.join("");
     }
   }
-  return questions;
+  return null;
 }
+
+export function buildQuiz(vocab: VocabItem[]): Question[] {
+  // Butuh minimal 4 kata agar tiap soal punya 4 pilihan unik (1 benar + 3 pengecoh).
+  if (vocab.length < 4) return [];
+  const pool = shuffle(vocab).slice(0, MAX_Q);
+  return pool.map((word) => {
+    // Pilih jenis soal: cloze bila contoh tersedia, selain itu makna/terbalik.
+    const cloze = word.examples_ar
+      .map((ex) => makeCloze(ex, word.lemma_ar))
+      .find((c): c is string => !!c);
+    const kinds: QKind[] = cloze
+      ? ["meaning", "reverse", "cloze"]
+      : ["meaning", "reverse"];
+    const kind = kinds[Math.floor(Math.random() * kinds.length)];
+
+    if (kind === "meaning") {
+      const distractors = shuffle(
+        vocab.filter((v) => v.meaning_ar !== word.meaning_ar)
+      )
+        .slice(0, 3)
+        .map((v) => v.meaning_ar);
+      const options = shuffle([word.meaning_ar, ...distractors]);
+      return {
+        kind,
+        word,
+        prompt: word.lemma_ar,
+        hint: word.root_ar ? `الجذر: ${word.root_ar}` : undefined,
+        options,
+        answer: options.indexOf(word.meaning_ar),
+      };
+    }
+
+    // reverse & cloze: pilihan adalah كلمات (lemma)
+    const distractors = shuffle(
+      vocab.filter((v) => v.lemma_ar !== word.lemma_ar)
+    )
+      .slice(0, 3)
+      .map((v) => v.lemma_ar);
+    const options = shuffle([word.lemma_ar, ...distractors]);
+    return {
+      kind,
+      word,
+      prompt: kind === "cloze" ? (cloze as string) : word.meaning_ar,
+      options,
+      answer: options.indexOf(word.lemma_ar),
+    };
+  });
+}
+
+const PROMPT_LABEL: Record<QKind, string> = {
+  meaning: "ما معنى:",
+  reverse: "أيّ كلمة تعني:",
+  cloze: "أكمل الفراغ:",
+};
 
 export function LessonQuiz({
   vocab,
@@ -116,7 +128,6 @@ export function LessonQuiz({
   const [picked, setPicked] = React.useState<number | null>(null);
   const [score, setScore] = React.useState(0);
   const [wrong, setWrong] = React.useState<VocabItem[]>([]);
-  const [saved, setSaved] = React.useState(false);
   const [done, setDone] = React.useState(false);
 
   function pick(i: number) {
@@ -124,7 +135,10 @@ export function LessonQuiz({
     setPicked(i);
     const q = questions[index];
     if (i === q.answer) setScore((s) => s + 1);
-    else setWrong((w) => [...w, q.word]);
+    else {
+      setWrong((w) => [...w, q.word]);
+      track("quiz_wrong", q.word.lemma_ar);
+    }
   }
 
   function next() {
@@ -142,25 +156,11 @@ export function LessonQuiz({
     setPicked(null);
     setScore(0);
     setWrong([]);
-    setSaved(false);
     setDone(false);
-  }
-
-  // Kuis bisa kosong bila kosakata tak cukup variatif untuk membuat pengecoh.
-  if (questions.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          لا توجد كلماتٌ كافية ومتنوّعة في هذا النصّ لإنشاء اختبار بعد.
-        </CardContent>
-      </Card>
-    );
   }
 
   if (done) {
     const pct = Math.round((score / questions.length) * 100);
-    // Saring duplikat kata yang salah (kata bisa muncul di lebih dari soal).
-    const wrongUnique = [...new Map(wrong.map((w) => [w.lemma_ar, w])).values()];
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
@@ -168,26 +168,22 @@ export function LessonQuiz({
           <p className="text-muted-foreground">
             أجبتَ بشكل صحيح عن {score} من {questions.length}.
           </p>
-          {wrongUnique.length > 0 && (
+          {wrong.length > 0 && (
             <Button
               variant="outline"
               className="gap-1.5"
-              disabled={saved}
               onClick={() => {
-                for (const w of wrongUnique)
+                for (const w of wrong)
                   learner.save({
                     lemma: w.lemma_ar,
                     root: w.root_ar,
                     meaning: w.meaning_ar,
                     addedAt: Date.now(),
                   });
-                setSaved(true);
               }}
             >
-              {saved ? <Check className="size-4" /> : <Bookmark className="size-4" />}
-              {saved
-                ? `حُفِظت (${wrongUnique.length}) للمراجعة`
-                : `احفظ ما أخطأتُ فيه (${wrongUnique.length}) للمراجعة`}
+              <Bookmark className="size-4" />
+              احفظ ما أخطأتُ فيه ({wrong.length}) للمراجعة
             </Button>
           )}
           <div className="flex gap-2">
@@ -208,6 +204,7 @@ export function LessonQuiz({
   }
 
   const q = questions[index];
+  const bigPrompt = q.kind === "meaning";
   return (
     <div>
       <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -222,24 +219,21 @@ export function LessonQuiz({
 
       <Card>
         <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Badge variant="outline" className="text-[10px]">
-              {TYPE_LABEL[q.type]}
-            </Badge>
-            {q.promptLabel}:
+          <span className="text-xs text-muted-foreground">
+            {PROMPT_LABEL[q.kind]}
           </span>
           <span
             className={
-              q.type === "reverse"
-                ? "text-2xl leading-relaxed"
-                : "font-naskh text-4xl"
+              bigPrompt
+                ? "font-naskh text-4xl"
+                : "font-naskh text-2xl leading-relaxed"
             }
           >
             {q.prompt}
           </span>
-          {q.rootBadge && (
+          {q.hint && (
             <Badge variant="secondary" className="mt-1">
-              الجذر: {q.rootBadge}
+              {q.hint}
             </Badge>
           )}
         </CardContent>
@@ -258,7 +252,7 @@ export function LessonQuiz({
               onClick={() => pick(i)}
               className={
                 "flex items-center justify-between gap-2 rounded-lg border p-3 text-start transition-colors " +
-                (q.optionFont === "naskh" ? "font-naskh text-lg " : "") +
+                (q.kind === "meaning" ? "" : "font-naskh text-lg ") +
                 (!reveal
                   ? "hover:border-primary/40 hover:bg-accent "
                   : isCorrect

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { getVolumes } from "@/lib/data/repository";
 import { ContinueReading } from "@/components/learner/continue-reading";
+import { StudyStats } from "@/components/learner/study-stats";
 
 // ISR: daftar jilid jarang berubah — cache & segarkan tiap jam agar halaman
 // depan tersaji dari edge (instan) alih-alih query DB tiap kunjungan.
@@ -51,7 +52,8 @@ export default async function Home() {
           </p>
         </section>
 
-        <div className="mt-14">
+        <div className="mt-14 space-y-6">
+          <StudyStats />
           <ContinueReading />
         </div>
 

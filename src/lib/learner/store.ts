@@ -43,15 +43,41 @@ export type LearnerState = {
   known: Record<string, true>;
   srs: Record<string, SrsCard>;
   progress: Record<string, Progress>;
+  notes: Record<string, string>; // lemma -> catatan pribadi
+  highlights: Record<string, string>; // lemma -> warna sorotan (hex/keyword)
+  activity: Record<string, number>; // "YYYY-MM-DD" -> jumlah نشاط (مراجعة/قراءة)
+  goal: number; // هدف يومي للمراجعة
 };
 
-const EMPTY: LearnerState = { saved: {}, known: {}, srs: {}, progress: {} };
+export const DEFAULT_GOAL = 10;
+
+export const HIGHLIGHT_COLORS = ["amber", "emerald", "sky", "rose", "violet"] as const;
+export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number];
+
+const EMPTY: LearnerState = {
+  saved: {},
+  known: {},
+  srs: {},
+  progress: {},
+  notes: {},
+  highlights: {},
+  activity: {},
+  goal: DEFAULT_GOAL,
+};
 
 // Interval Leitner (hari) per kotak 0..4.
 const DAY = 86_400_000;
 const MIN = 60_000;
 const INTERVALS_DAYS = [0, 1, 3, 7, 16];
 const MAX_BOX = INTERVALS_DAYS.length - 1;
+
+/** Kunci tanggal lokal "YYYY-MM-DD" (untuk streak & هدف يومي). */
+export function dateKey(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 let state: LearnerState = EMPTY;
 let loaded = false;
@@ -61,16 +87,20 @@ function read(): LearnerState {
   if (typeof window === "undefined") return EMPTY;
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (!raw) return { saved: {}, known: {}, srs: {}, progress: {} };
+    if (!raw) return { ...EMPTY };
     const p = JSON.parse(raw) as Partial<LearnerState>;
     return {
       saved: p.saved ?? {},
       known: p.known ?? {},
       srs: p.srs ?? {},
       progress: p.progress ?? {},
+      notes: p.notes ?? {},
+      highlights: p.highlights ?? {},
+      activity: p.activity ?? {},
+      goal: typeof p.goal === "number" ? p.goal : DEFAULT_GOAL,
     };
   } catch {
-    return { saved: {}, known: {}, srs: {}, progress: {} };
+    return { ...EMPTY };
   }
 }
 
@@ -198,10 +228,44 @@ export const learner = {
     ensureLoaded();
     const prev = state.progress[slug];
     if (!prev) return;
+    const today = dateKey();
     commit({
       ...state,
       progress: { ...state.progress, [slug]: { ...prev, done, at: Date.now() } },
+      // Menamatkan قراءة درس dihitung sebagai نشاط hari ini (untuk streak).
+      activity: done
+        ? { ...state.activity, [today]: (state.activity[today] ?? 0) + 1 }
+        : state.activity,
     });
+  },
+
+  // ---------------- catatan & س,رات ----------------
+
+  setNote(lemma: string, text: string) {
+    ensureLoaded();
+    const notes = { ...state.notes };
+    const t = text.trim();
+    if (t) notes[lemma] = t;
+    else delete notes[lemma];
+    commit({ ...state, notes });
+  },
+
+  setHighlight(lemma: string, color: string | null) {
+    ensureLoaded();
+    const highlights = { ...state.highlights };
+    if (color) highlights[lemma] = color;
+    else delete highlights[lemma];
+    commit({ ...state, highlights });
+  },
+
+  toggleHighlight(lemma: string, color: HighlightColor) {
+    ensureLoaded();
+    this.setHighlight(lemma, state.highlights[lemma] === color ? null : color);
+  },
+
+  setGoal(n: number) {
+    ensureLoaded();
+    commit({ ...state, goal: Math.max(1, Math.round(n)) });
   },
 
   /** Nilai sebuah kartu saat sesi hafalan: "good" naik kotak, "again" reset. */
@@ -230,7 +294,12 @@ export const learner = {
         lapses: card.lapses + 1,
       };
     }
-    commit({ ...state, srs: { ...state.srs, [lemma]: next } });
+    const today = dateKey();
+    commit({
+      ...state,
+      srs: { ...state.srs, [lemma]: next },
+      activity: { ...state.activity, [today]: (state.activity[today] ?? 0) + 1 },
+    });
   },
 };
 
@@ -254,4 +323,28 @@ export function learningWords(s: LearnerState): SavedWord[] {
 /** Pelajaran yang sedang/baru dibaca, terbaru dulu. */
 export function recentProgress(s: LearnerState): Progress[] {
   return Object.values(s.progress).sort((a, b) => b.at - a.at);
+}
+
+/** Jumlah نشاط hari ini (مراجعات + دروس تامة). */
+export function todayCount(s: LearnerState, now = new Date()): number {
+  return s.activity[dateKey(now)] ?? 0;
+}
+
+/**
+ * Streak hari berturut-turut dengan minimal satu نشاط — dihitung mundur dari
+ * hari ini (atau kemarin bila hari ini belum ada نشاط, agar tak langsung putus).
+ */
+export function streakDays(s: LearnerState, now = new Date()): number {
+  let count = 0;
+  const cursor = new Date(now);
+  if (!s.activity[dateKey(cursor)]) {
+    // Beri tenggang: mulai dari kemarin bila hari ini belum aktif.
+    cursor.setDate(cursor.getDate() - 1);
+    if (!s.activity[dateKey(cursor)]) return 0;
+  }
+  while (s.activity[dateKey(cursor)]) {
+    count++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return count;
 }

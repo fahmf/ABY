@@ -130,3 +130,38 @@
     color: transparent;
   }
 }
+
+/*
+  Cetak / حفظ PDF: sembunyikan العناصر التفاعلية (الترويسة، الأزرار) واطبع
+  المحتوى بالأسود على أبيض بهوامش مريحة. أضِف class="no-print" لإخفاء عنصر،
+  و class="print-area" للحاوية التي تُطبع وحدها.
+*/
+@media print {
+  .no-print,
+  header,
+  nav {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+  .print-area {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .break-avoid {
+    break-inside: avoid;
+  }
+  @page {
+    margin: 1.6cm;
+  }
+}

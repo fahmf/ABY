@@ -49,3 +49,12 @@ Jalankan lewat Supabase SQL Editor atau Supabase CLI (`supabase db push`).
 - [x] **Fase 3** — Pipeline ingest Gemini (tokenisasi → akar + lemma + draft kamus) + antrian verifikasi (draft→published) + reader tersambung ke kamus DB via `/api/dictionary`.
 - [x] **Fase 4** — Frekuensi se-akar (`/api/frequency`) + daftar kemunculan per teks + deep-link highlight (`/baca/[lesson]#t=<id>`).
 - [x] **Fase 5** — Pencarian teks (`/cari`), pengaturan baca (ukuran font + harakat, tersimpan di localStorage), PWA (manifest + service worker offline).
+- [x] **Fase 6** — Pengalaman belajar & admin lanjutan:
+  - **Pelajar**: streak + target harian (`StudyStats`), catatan & sorotan kata
+    pribadi, mode **استماع** (TTS berurutan dengan highlight), pengaturan baca
+    lanjutan (jenis font/spasi/lebar), onboarding, glosarium per-pelajaran
+    (`/baca/[lesson]/mufradat`) + cetak/PDF, kuis multi-mode (makna/terbalik/cloze).
+  - **Admin**: impor massal (`/admin/import`), publish/sembunyikan jamak +
+    urutkan + pratinjau pada daftar نصوص, edit/hapus jilid & unit, dasbor
+    **تحليلات** (`/admin/analytics`) dari `usage_events`, dan **سجلّ النشاط**
+    (`/admin/audit`). Skema baru: [`0015_activity_and_usage.sql`](./supabase/migrations/0015_activity_and_usage.sql).
