@@ -214,7 +214,27 @@ export async function getDictionaryMatches(lessonSlug: string): Promise<Record<n
   return matches;
 }
 
-export type VocabItem = { lemma_ar: string; meaning_ar: string; root_ar: string };
+export type VocabItem = {
+  lemma_ar: string;
+  meaning_ar: string;
+  root_ar: string;
+  examples_ar: string[];
+};
+
+/** Normalisasi nilai examples_ar (jsonb: array string atau {text}). */
+function exampleArr(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((x) =>
+      typeof x === "string"
+        ? x
+        : x && typeof x === "object" && "text" in x
+          ? String((x as { text: unknown }).text)
+          : ""
+    )
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 /**
  * Kosakata sebuah pelajaran untuk kuis: lemma yang muncul di teks DAN punya
@@ -245,7 +265,7 @@ export async function getLessonVocabulary(
 
     const { data: entries } = await supabase
       .from("dictionary_entries")
-      .select("lemma_ar, meaning_ar, roots(root_ar)")
+      .select("lemma_ar, meaning_ar, examples_ar, roots(root_ar)")
       .eq("status", "published")
       .in("lemma_ar", lemmas);
 
@@ -253,6 +273,7 @@ export async function getLessonVocabulary(
       (entries as unknown as {
         lemma_ar: string;
         meaning_ar: string | null;
+        examples_ar: unknown;
         roots: { root_ar: string } | null;
       }[]) ?? [];
     return rows
@@ -261,6 +282,7 @@ export async function getLessonVocabulary(
         lemma_ar: r.lemma_ar,
         meaning_ar: (r.meaning_ar ?? "").trim(),
         root_ar: r.roots?.root_ar ?? "",
+        examples_ar: exampleArr(r.examples_ar),
       }));
   } catch {
     return [];

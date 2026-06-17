@@ -43,15 +43,36 @@ if (typeof window !== "undefined" && "speechSynthesis" in window) {
   };
 }
 
+/** Buat utterance Arab siap-ucap (lang/voice/rate) — null bila tak didukung. */
+export function makeUtterance(
+  text: string,
+  rate = 0.9
+): SpeechSynthesisUtterance | null {
+  if (!speechSupported() || !text.trim()) return null;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "ar";
+  u.rate = rate;
+  const voice = pickArabicVoice();
+  if (voice) u.voice = voice;
+  return u;
+}
+
+/** Hentikan setiap pelafalan yang sedang berjalan/antre. */
+export function cancelSpeech(): void {
+  if (speechSupported()) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch {
+      /* abaikan */
+    }
+  }
+}
+
 /** Lafalkan sebuah teks Arab. Mengembalikan false bila tak didukung. */
 export function speak(text: string): boolean {
-  if (!speechSupported() || !text.trim()) return false;
+  const u = makeUtterance(text);
+  if (!u) return false;
   try {
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "ar";
-    u.rate = 0.9;
-    const voice = pickArabicVoice();
-    if (voice) u.voice = voice;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
     return true;

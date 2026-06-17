@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import { RootFrequencyButton } from "./root-frequency";
 import { WordActions } from "./word-actions";
+import { WordNote } from "@/components/learner/word-note";
 import { StaffRetag } from "./staff-retag";
 import type { DictionaryEntry } from "@/lib/data/types";
 
@@ -147,6 +148,7 @@ export function DictionaryPanel({
             meaning={entry.meaning_ar}
             surface={surface}
           />
+          <WordNote lemma={entry.lemma_ar} />
           {savedNote && (
             <p className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/8 px-3 py-2 text-xs text-emerald-700 sm:text-sm dark:text-emerald-300">
               <Check className="size-4 shrink-0" />
