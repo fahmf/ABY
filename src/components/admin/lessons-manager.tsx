@@ -14,6 +14,8 @@ import {
   Sparkles,
   Trash2,
   Zap,
+  CheckCircle2,
+  Tag,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +36,9 @@ export type ManagedLesson = {
   slug: string;
   unitTitle: string;
   status: "draft" | "published";
+  has_quiz?: boolean;
+  is_fully_indexed?: boolean;
+  is_fully_explained?: boolean;
 };
 
 export function LessonsManager({
@@ -142,9 +147,30 @@ export function LessonsManager({
               />
               <div className="min-w-0">
                 <p className="truncate font-naskh text-lg">{l.title_ar}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {l.unitTitle}
-                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {l.unitTitle}
+                  </span>
+                  
+                  {l.is_fully_indexed && (
+                    <Badge variant="outline" className="bg-indigo-500/10 text-indigo-700 border-indigo-500/20 dark:text-indigo-300 dark:bg-indigo-500/20 py-0.5 px-1.5 text-[10px] font-normal gap-1 shrink-0">
+                      <Tag className="size-3" />
+                      مفهرس بالكامل
+                    </Badge>
+                  )}
+                  {l.is_fully_explained && (
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-300 dark:bg-emerald-500/20 py-0.5 px-1.5 text-[10px] font-normal gap-1 shrink-0">
+                      <CheckCircle2 className="size-3" />
+                      شرح مكتمل
+                    </Badge>
+                  )}
+                  {l.has_quiz && (
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/20 dark:text-amber-300 dark:bg-amber-500/20 py-0.5 px-1.5 text-[10px] font-normal gap-1 shrink-0">
+                      <HelpCircle className="size-3" />
+                      اختبار جاهز
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0 sm:gap-2">

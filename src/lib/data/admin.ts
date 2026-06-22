@@ -26,6 +26,9 @@ export type AdminLesson = {
   status: "draft" | "published";
   unit_id: string;
   unitTitle: string;
+  has_quiz?: boolean;
+  is_fully_indexed?: boolean;
+  is_fully_explained?: boolean;
 };
 
 export type AdminEntry = {
@@ -342,23 +345,28 @@ export async function listUnits(): Promise<AdminUnit[]> {
 
 export async function listLessons(): Promise<AdminLesson[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("lessons")
-    .select("id,title_ar,slug,body_ar,status,unit_id,units!inner(title_ar)")
-    .order("created_at", { ascending: false });
-  return (
-    (data as unknown as (Omit<AdminLesson, "unitTitle"> & {
-      units: { title_ar: string };
-    })[]) ?? []
-  ).map((l) => ({
-    id: l.id,
-    title_ar: l.title_ar,
-    slug: l.slug,
-    body_ar: l.body_ar,
-    status: l.status,
-    unit_id: l.unit_id,
-    unitTitle: l.units.title_ar,
-  }));
+  const { data, error } = await supabase.rpc("list_admin_lessons");
+  if (error) {
+    console.error("Error listing admin lessons via RPC:", error);
+    const { data: fallback } = await supabase
+      .from("lessons")
+      .select("id,title_ar,slug,body_ar,status,unit_id,units!inner(title_ar)")
+      .order("created_at", { ascending: false });
+    return (
+      (fallback as unknown as (Omit<AdminLesson, "unitTitle"> & {
+        units: { title_ar: string };
+      })[]) ?? []
+    ).map((l) => ({
+      id: l.id,
+      title_ar: l.title_ar,
+      slug: l.slug,
+      body_ar: l.body_ar,
+      status: l.status,
+      unit_id: l.unit_id,
+      unitTitle: l.units.title_ar,
+    }));
+  }
+  return (data as AdminLesson[]) ?? [];
 }
 
 // ---------- audit / activity log ----------
