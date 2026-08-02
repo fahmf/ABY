@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, BookText, Sparkles } from "lucide-react";
+import { ArrowLeft, BookText, ServerCrash, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getVolumes } from "@/lib/data/repository";
+import { getVolumes, looksLikeDatabaseDown } from "@/lib/data/repository";
 import { ContinueReading } from "@/components/learner/continue-reading";
 import { StudyStats } from "@/components/learner/study-stats";
 
@@ -25,7 +25,9 @@ const VOLUME_TITLES: Record<number, string> = {
 
 export default async function Home() {
   // Empat slot tampil; status "متاح" ditentukan oleh data (Supabase/seed).
-  const available = new Set((await getVolumes()).map((v) => v.number));
+  const allVolumes = await getVolumes();
+  const dbDown = looksLikeDatabaseDown(allVolumes);
+  const available = new Set(allVolumes.map((v) => v.number));
   const volumes = [1, 2, 3, 4].map((number) => ({
     number,
     title: VOLUME_TITLES[number],
@@ -53,6 +55,25 @@ export default async function Home() {
         </section>
 
         <div className="mt-14 space-y-6">
+          {/*
+            Bedakan "belum ada konten" dari "database sedang tak terjangkau"
+            (mis. project Supabase Free ter-pause). Tanpa ini, situs tampak
+            seolah seluruh data hilang padahal hanya perlu diaktifkan kembali.
+          */}
+          {dbDown && (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/8 p-4 text-start text-sm">
+              <ServerCrash className="mt-0.5 size-5 shrink-0 text-amber-500" />
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">
+                  تعذّر الوصول إلى قاعدة البيانات مؤقّتًا
+                </p>
+                <p className="text-muted-foreground">
+                  المحتوى محفوظ ولم يُفقد؛ الخدمة فقط غير متاحة هذه اللحظة.
+                  أعِد المحاولة بعد قليل.
+                </p>
+              </div>
+            </div>
+          )}
           <StudyStats />
           <ContinueReading />
         </div>
