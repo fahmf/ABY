@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# hasil ekspor `bun run backup` (data konten, jangan ikut ter-commit)
+/backup
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
