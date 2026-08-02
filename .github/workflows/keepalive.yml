@@ -1,0 +1,50 @@
+name: Keep Supabase awake
+
+# Supabase paket Free mem-pause project otomatis setelah ~7 hari tanpa
+# aktivitas database. Saat itu terjadi, situs tidak bisa membaca konten dan
+# tampak seolah "semua data hilang" (padahal data aman, project hanya tidur).
+#
+# Workflow ini menyentuh halaman publik yang dirender di server dan melakukan
+# query ke Supabase, sehingga database tercatat aktif. Dijalankan tiap 2 hari
+# agar punya margin aman terhadap ambang 7 hari.
+#
+# Catatan: GitHub menonaktifkan jadwal (schedule) pada repositori yang tidak
+# ada aktivitas selama ~60 hari. Bila itu terjadi, aktifkan lagi lewat tab
+# Actions, atau jalankan manual via "Run workflow".
+
+on:
+  schedule:
+    - cron: "0 2 */2 * *" # 02:00 UTC, tiap 2 hari
+  workflow_dispatch: # bisa dijalankan manual kapan saja
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Ping produksi (memicu query DB)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sentuh halaman yang membaca database
+        env:
+          # Ganti lewat Settings → Secrets and variables → Actions → Variables
+          # bila domain produksi berubah.
+          BASE_URL: ${{ vars.PROD_URL || 'https://aby-henna.vercel.app' }}
+        run: |
+          set -euo pipefail
+          fail=0
+          # Halaman jilid dirender di server dan menanyakan tabel
+          # volumes + units, jadi cukup untuk menandai database "aktif".
+          for path in "/jilid/1" "/jilid/3"; do
+            url="${BASE_URL}${path}"
+            code=$(curl -sS -o /dev/null -w "%{http_code}" \
+                     --retry 3 --retry-delay 10 --retry-all-errors \
+                     --max-time 45 "$url" || echo "000")
+            echo "GET ${path} -> HTTP ${code}"
+            if [ "$code" != "200" ]; then
+              echo "::error::${url} mengembalikan HTTP ${code}"
+              fail=1
+            fi
+          done
+          exit "$fail"

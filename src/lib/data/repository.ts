@@ -6,6 +6,32 @@ import { LESSONS, UNITS, VOLUMES } from "./seed";
 // Lapisan akses data publik. Memakai Supabase bila terkonfigurasi (RLS
 // otomatis menyaring konten 'published'), selain itu jatuh ke data seed.
 // Catatan: slug pelajaran diperlakukan unik global untuk routing /baca/[lesson].
+//
+// PENTING soal seed: seed HANYA dipakai saat Supabase belum dikonfigurasi
+// (mis. pengembangan lokal tanpa .env). Bila Supabase dikonfigurasi tetapi
+// query gagal — kasus nyata: project Supabase paket Free ter-pause otomatis
+// setelah ~7 hari tanpa aktivitas — kita TIDAK menampilkan seed. Sebab seed
+// hanya berisi 1 jilid/2 unit/3 pelajaran, sehingga situs tampak seolah
+// "semua data hilang" padahal database baik-baik saja, hanya sedang tidur.
+// Sebagai gantinya: galat dicatat ke log server dan pemanggil menerima hasil
+// kosong, agar UI bisa menampilkan status yang jujur (lihat `dbDown`).
+
+/**
+ * Catat kegagalan akses database ke log server (terlihat di Vercel Runtime
+ * Logs) dengan awalan seragam agar mudah dicari saat menelusuri insiden.
+ */
+function dbDown(scope: string, err: unknown): void {
+  console.error(`[ABY][db-unavailable] ${scope}:`, err);
+}
+
+/**
+ * True bila Supabase dikonfigurasi tetapi tidak menghasilkan satu jilid pun —
+ * indikasi database sedang tak terjangkau (mis. project ter-pause), bukan
+ * benar-benar tanpa konten. Dipakai UI untuk memberi pesan yang tepat.
+ */
+export function looksLikeDatabaseDown(volumes: Volume[]): boolean {
+  return isSupabaseConfigured() && volumes.length === 0;
+}
 
 export async function getVolumes(): Promise<Volume[]> {
   if (!isSupabaseConfigured()) return seedVolumes();
@@ -21,15 +47,15 @@ export async function getVolumes(): Promise<Volume[]> {
       title_ar: v.title_ar as string,
       slug: v.slug as string,
     }));
-  } catch {
-    return seedVolumes();
+  } catch (err) {
+    dbDown("getVolumes", err);
+    return [];
   }
 }
 
 export async function getVolume(number: number): Promise<Volume | null> {
   if (!isSupabaseConfigured())
     return seedVolumes().find((v) => v.number === number) ?? null;
-  const fallback = () => seedVolumes().find((v) => v.number === number) ?? null;
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -38,14 +64,15 @@ export async function getVolume(number: number): Promise<Volume | null> {
       .eq("number", number)
       .maybeSingle();
     if (error) throw error;
-    if (!data) return fallback();
+    if (!data) return null;
     return {
       number: data.number as number,
       title_ar: data.title_ar as string,
       slug: data.slug as string,
     };
-  } catch {
-    return fallback();
+  } catch (err) {
+    dbDown(`getVolume(${number})`, err);
+    return null;
   }
 }
 
@@ -65,8 +92,9 @@ export async function getUnits(volumeNumber: number): Promise<Unit[]> {
       title_ar: u.title_ar,
       volumeNumber: u.volumes.number,
     }));
-  } catch {
-    return seedUnits(volumeNumber);
+  } catch (err) {
+    dbDown(`getUnits(${volumeNumber})`, err);
+    return [];
   }
 }
 
@@ -76,8 +104,6 @@ export async function getUnit(
 ): Promise<Unit | null> {
   if (!isSupabaseConfigured())
     return seedUnits(volumeNumber).find((u) => u.slug === unitSlug) ?? null;
-  const fallback = () =>
-    seedUnits(volumeNumber).find((u) => u.slug === unitSlug) ?? null;
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -87,7 +113,7 @@ export async function getUnit(
       .eq("volumes.number", volumeNumber)
       .maybeSingle();
     if (error) throw error;
-    if (!data) return fallback();
+    if (!data) return null;
     const u = data as unknown as UnitRow;
     return {
       slug: u.slug,
@@ -95,8 +121,9 @@ export async function getUnit(
       title_ar: u.title_ar,
       volumeNumber: u.volumes.number,
     };
-  } catch {
-    return fallback();
+  } catch (err) {
+    dbDown(`getUnit(${volumeNumber}/${unitSlug})`, err);
+    return null;
   }
 }
 
@@ -113,16 +140,15 @@ export async function getLessons(unitSlug: string): Promise<Lesson[]> {
       .order("sort_order");
     if (error || !data) throw error;
     return (data as unknown as LessonRow[]).map(mapLessonRow);
-  } catch {
-    return seedLessons(unitSlug);
+  } catch (err) {
+    dbDown(`getLessons(${unitSlug})`, err);
+    return [];
   }
 }
 
 export async function getLesson(lessonSlug: string): Promise<Lesson | null> {
   if (!isSupabaseConfigured())
     return seedLessons().find((l) => l.slug === lessonSlug) ?? null;
-  const fallback = () =>
-    seedLessons().find((l) => l.slug === lessonSlug) ?? null;
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -134,10 +160,11 @@ export async function getLesson(lessonSlug: string): Promise<Lesson | null> {
       .limit(1)
       .maybeSingle();
     if (error) throw error;
-    if (!data) return fallback();
+    if (!data) return null;
     return mapLessonRow(data as unknown as LessonRow);
-  } catch {
-    return fallback();
+  } catch (err) {
+    dbDown(`getLesson(${lessonSlug})`, err);
+    return null;
   }
 }
 
@@ -149,8 +176,9 @@ export async function getAllLessonSlugs(): Promise<string[]> {
     const { data, error } = await supabase.from("lessons").select("slug");
     if (error || !data) throw error;
     return (data as { slug: string }[]).map((r) => r.slug);
-  } catch {
-    return seedLessons().map((l) => l.slug);
+  } catch (err) {
+    dbDown("getAllLessonSlugs", err);
+    return [];
   }
 }
 
